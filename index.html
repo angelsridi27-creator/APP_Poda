@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Certificación de Poda - EPEC</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1e3a8a">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
+
+  <!-- Header / Navbar -->
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-50 flex items-center justify-between shadow-lg">
+    <div class="flex items-center space-x-3">
+      <button id="btn-back" class="hidden p-2 text-slate-400 hover:text-white bg-slate-700/50 rounded-lg">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+      </button>
+      <div>
+        <h1 class="text-base font-bold text-white leading-tight">Certificación de Poda</h1>
+        <p id="sub-header" class="text-xs text-slate-400">EPEC - Cuadrillas Privadas</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-2">
+      <span id="sync-status" class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+      <button onclick="cargarDatosActuales()" class="p-2 text-slate-400 hover:text-white">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Contenido Principal -->
+  <main class="flex-1 p-4 max-w-lg mx-auto w-full">
+
+    <!-- VISTA 1: SELECCIÓN DE ZONA Y TRAMO -->
+    <section id="vista-tramos" class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Zona Seleccionada</label>
+        <select id="select-zona" onchange="cargarTramos()" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+          <option value="NORTE CBA CIUDAD">NORTE CBA CIUDAD</option>
+        </select>
+      </div>
+
+      <div class="flex items-center justify-between pt-2">
+        <h2 class="text-sm font-semibold text-slate-300">Tramos de Línea (<span id="count-tramos">0</span>)</h2>
+      </div>
+
+      <div id="lista-tramos" class="space-y-3">
+        <!-- Loader inicial -->
+        <div class="p-8 text-center text-slate-500 text-sm flex flex-col items-center">
+          <i data-lucide="loader-2" class="w-8 h-8 animate-spin mb-2 text-blue-500"></i>
+          Cargando tramos desde Google Sheets...
+        </div>
+      </div>
+    </section>
+
+    <!-- VISTA 2: LISTA DE VANOS DE UN TRAMO -->
+    <section id="vista-vanos" class="hidden space-y-4">
+      <!-- Tarjeta resumen del tramo -->
+      <div class="bg-slate-800 border border-slate-700/80 rounded-2xl p-4 shadow-md">
+        <span id="tramo-linea-tag" class="text-xs font-semibold text-blue-400 uppercase tracking-wider block mb-1"></span>
+        <h2 id="tramo-titulo" class="text-lg font-bold text-white mb-2"></h2>
+        
+        <div class="w-full bg-slate-700 h-2.5 rounded-full overflow-hidden flex">
+          <div id="bar-certificados" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <div class="flex justify-between text-xs text-slate-400 mt-2">
+          <span>Progreso de Certificación</span>
+          <span id="tramo-progreso-txt" class="font-bold text-white">0%</span>
+        </div>
+      </div>
+
+      <!-- Filtros rápidos de estado -->
+      <div class="flex space-x-2 overflow-x-auto pb-1 text-xs no-scrollbar">
+        <button onclick="filtrarVanos('TODOS')" class="btn-filtro bg-blue-600 text-white px-3 py-1.5 rounded-lg whitespace-nowrap">Todos</button>
+        <button onclick="filtrarVanos('PENDIENTE')" class="btn-filtro bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap">Pendientes</button>
+        <button onclick="filtrarVanos('RESTOS')" class="btn-filtro bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap">Restos de Poda</button>
+        <button onclick="filtrarVanos('CERTIFICADO')" class="btn-filtro bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap">Certificados</button>
+      </div>
+
+      <div id="lista-vanos" class="space-y-3">
+        <!-- Vanos renderizados dinámicamente -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal Selector de Estado -->
+  <div id="modal-estado" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <div>
+          <span class="text-xs text-blue-400 font-semibold uppercase">Actualizar Estado</span>
+          <h3 id="modal-vano-title" class="text-base font-bold text-white">Vano --</h3>
+        </div>
+        <button onclick="cerrarModal()" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-400">Seleccioná la fase correspondiente para este vano:</p>
+
+      <div class="grid grid-cols-1 gap-2 text-sm font-medium">
+        <!-- 4 Estados de Poda -->
+        <button onclick="guardarEstado('Poda Preventiva Verde')" class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 flex items-center justify-between hover:bg-emerald-900/50">
+          <span class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+            <span>Poda Preventiva Verde</span>
+          </span>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-emerald-500"></i>
+        </button>
+
+        <button onclick="guardarEstado('Poda Cerca Amarillo')" class="p-3 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-300 flex items-center justify-between hover:bg-amber-900/50">
+          <span class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+            <span>Poda Cerca Amarillo</span>
+          </span>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-amber-500"></i>
+        </button>
+
+        <button onclick="guardarEstado('Poda Muy Cerca Rojo')" class="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 flex items-center justify-between hover:bg-rose-900/50">
+          <span class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+            <span>Poda Muy Cerca Rojo</span>
+          </span>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-rose-500"></i>
+        </button>
+
+        <button onclick="guardarEstado('Poda en Altura')" class="p-3 rounded-xl bg-purple-950/60 border border-purple-500/50 text-purple-300 flex items-center justify-between hover:bg-purple-900/50">
+          <span class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+            <span>Poda en Altura</span>
+          </span>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-purple-500"></i>
+        </button>
+
+        <hr class="border-slate-700 my-1">
+
+        <!-- Transición Limpieza -->
+        <button onclick="guardarEstado('Restos de Poda')" class="p-3 rounded-xl bg-orange-950/60 border border-orange-500/50 text-orange-300 flex items-center justify-between hover:bg-orange-900/50">
+          <span class="flex items-center space-x-2">
+            <i data-lucide="trash-2" class="w-4 h-4 text-orange-400"></i>
+            <span>Restos de Poda</span>
+          </span>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-orange-500"></i>
+        </button>
+
+        <!-- Certificación Final -->
+        <button onclick="guardarEstado('Certificado')" class="p-3 rounded-xl bg-blue-600 text-white flex items-center justify-between hover:bg-blue-500 shadow-lg shadow-blue-600/30 font-bold">
+          <span class="flex items-center space-x-2">
+            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-300"></i>
+            <span>CERTIFICAR VANO</span>
+          </span>
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script de App Principal -->
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbz0IMl0nAI7lY8rtjzImtL0_URi38BNl3EETrYz1XiPKWCrdMZiMpM_PG4kfoh53UQ4CQ/exec";
+
+    let estadoApp = {
+      zona: "NORTE CBA CIUDAD",
+      tramoSeleccionado: null,
+      tramos: [],
+      vanos: [],
+      vanoActual: null,
+      filtroActual: "TODOS"
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      cargarTramos();
+
+      document.getElementById("btn-back").addEventListener("click", volverATramos);
+    });
+
+    async function cargarTramos() {
+      const zona = document.getElementById("select-zona").value;
+      estadoApp.zona = zona;
+      const contenedor = document.getElementById("lista-tramos");
+      
+      contenedor.innerHTML = `
+        <div class="p-8 text-center text-slate-500 text-sm flex flex-col items-center">
+          <i data-lucide="loader-2" class="w-8 h-8 animate-spin mb-2 text-blue-500"></i>
+          Cargando tramos de ${zona}...
+        </div>
+      `;
+      lucide.createIcons();
+
+      try {
+        const resp = await fetch(`${API_URL}?action=getTramos&zona=${encodeURIComponent(zona)}`);
+        const data = await resp.json();
+
+        if (data.success) {
+          estadoApp.tramos = data.tramos;
+          document.getElementById("count-tramos").innerText = data.tramos.length;
+          renderTramos(data.tramos);
+        }
+      } catch (e) {
+        contenedor.innerHTML = `<div class="p-4 bg-rose-950/50 border border-rose-500 text-rose-200 rounded-xl text-center text-xs">Error de conexión con el servidor.</div>`;
+      }
+    }
+
+    function renderTramos(tramos) {
+      const contenedor = document.getElementById("lista-tramos");
+      contenedor.innerHTML = "";
+
+      tramos.forEach(t => {
+        const pct = Math.round((t.certificados / t.totalVanos) * 100) || 0;
+        const item = document.createElement("div");
+        item.className = "bg-slate-800 border border-slate-700/80 hover:border-blue-500/50 rounded-2xl p-4 shadow-md transition cursor-pointer flex flex-col space-y-3";
+        item.onclick = () => abrirTramo(t);
+
+        item.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <span class="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Tramo ${t.tramo}</span>
+              <h3 class="text-sm font-bold text-white leading-snug">${t.linea}</h3>
+            </div>
+            <i data-lucide="chevron-right" class="w-5 h-5 text-slate-500"></i>
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs text-slate-400">
+              <span>${t.certificados} de ${t.totalVanos} vanos</span>
+              <span class="font-semibold text-white">${pct}%</span>
+            </div>
+            <div class="w-full bg-slate-700 h-2 rounded-full overflow-hidden">
+              <div class="bg-emerald-500 h-full" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+        contenedor.appendChild(item);
+      });
+      lucide.createIcons();
+    }
+
+    async function abrirTramo(tramoObj) {
+      estadoApp.tramoSeleccionado = tramoObj;
+      document.getElementById("vista-tramos").classList.add("hidden");
+      document.getElementById("vista-vanos").classList.remove("hidden");
+      document.getElementById("btn-back").classList.remove("hidden");
+
+      document.getElementById("tramo-linea-tag").innerText = `TRAMO ${tramoObj.tramo}`;
+      document.getElementById("tramo-titulo").innerText = tramoObj.linea;
+      document.getElementById("sub-header").innerText = `Tramo ${tramoObj.tramo} • ${tramoObj.linea}`;
+
+      await cargarVanos();
+    }
+
+    function volverATramos() {
+      document.getElementById("vista-vanos").classList.add("hidden");
+      document.getElementById("vista-tramos").classList.remove("hidden");
+      document.getElementById("btn-back").classList.add("hidden");
+      document.getElementById("sub-header").innerText = "EPEC - Cuadrillas Privadas";
+      cargarTramos();
+    }
+
+    async function cargarVanos() {
+      const contenedor = document.getElementById("lista-vanos");
+      contenedor.innerHTML = `
+        <div class="p-8 text-center text-slate-500 text-sm flex flex-col items-center">
+          <i data-lucide="loader-2" class="w-8 h-8 animate-spin mb-2 text-blue-500"></i>
+          Cargando vanos del Tramo ${estadoApp.tramoSeleccionado.tramo}...
+        </div>
+      `;
+      lucide.createIcons();
+
+      try {
+        const resp = await fetch(`${API_URL}?action=getVanos&zona=${encodeURIComponent(estadoApp.zona)}&tramo=${estadoApp.tramoSeleccionado.tramo}`);
+        const data = await resp.json();
+
+        if (data.success) {
+          estadoApp.vanos = data.vanos;
+          actualizarProgresoTramo();
+          renderVanos();
+        }
+      } catch (e) {
+        contenedor.innerHTML = `<div class="p-4 bg-rose-950/50 border border-rose-500 text-rose-200 rounded-xl text-center text-xs">Error al cargar vanos.</div>`;
+      }
+    }
+
+    function actualizarProgresoTramo() {
+      const total = estadoApp.vanos.length;
+      const certificados = estadoApp.vanos.filter(v => v.estado === "Certificado").length;
+      const pct = Math.round((certificados / total) * 100) || 0;
+
+      document.getElementById("bar-certificados").style.width = `${pct}%`;
+      document.getElementById("tramo-progreso-txt").innerText = `${pct}% (${certificados}/${total})`;
+    }
+
+    function renderVanos() {
+      const contenedor = document.getElementById("lista-vanos");
+      contenedor.innerHTML = "";
+
+      let lista = estadoApp.vanos;
+      if (estadoApp.filtroActual === "PENDIENTE") lista = lista.filter(v => v.estado !== "Certificado");
+      if (estadoApp.filtroActual === "RESTOS") lista = lista.filter(v => v.estado === "Restos de Poda");
+      if (estadoApp.filtroActual === "CERTIFICADO") lista = lista.filter(v => v.estado === "Certificado");
+
+      lista.forEach(v => {
+        const badge = getBadgeEstado(v.estado);
+        const item = document.createElement("div");
+        item.className = "bg-slate-800/90 border border-slate-700/80 rounded-xl p-3.5 flex items-center justify-between cursor-pointer hover:border-slate-500 transition";
+        item.onclick = () => abrirModalEstado(v);
+
+        item.innerHTML = `
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-slate-700/50 border border-slate-600 flex items-center justify-center font-bold text-sm text-white">
+              ${v.vano}
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">Vano ${v.vano}</div>
+              <div class="mt-1">${badge}</div>
+            </div>
+          </div>
+          <div class="text-right">
+            ${v.fechaCertificado ? `<span class="text-[10px] text-emerald-400 font-semibold block">${v.fechaCertificado}</span>` : ''}
+            <i data-lucide="edit-3" class="w-4 h-4 text-slate-500 inline-block mt-1"></i>
+          </div>
+        `;
+        contenedor.appendChild(item);
+      });
+      lucide.createIcons();
+    }
+
+    function getBadgeEstado(estado) {
+      switch (estado) {
+        case "Poda Preventiva Verde":
+          return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950 border border-emerald-500/50 text-emerald-300">🟢 Preventiva Verde</span>`;
+        case "Poda Cerca Amarillo":
+          return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950 border border-amber-500/50 text-amber-300">🟡 Cerca Amarillo</span>`;
+        case "Poda Muy Cerca Rojo":
+          return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950 border border-rose-500/50 text-rose-300">🔴 Muy Cerca Rojo</span>`;
+        case "Poda en Altura":
+          return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-950 border border-purple-500/50 text-purple-300">🟣 Poda en Altura</span>`;
+        case "Restos de Poda":
+          return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-950 border border-orange-500/50 text-orange-300">🧹 Restos de Poda</span>`;
+        case "Certificado":
+          return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-950 border border-blue-500/50 text-blue-300">✅ CERTIFICADO</span>`;
+        default:
+          return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-700 text-slate-300">⚪ Pendiente</span>`;
+      }
+    }
+
+    function abrirModalEstado(vanoObj) {
+      estadoApp.vanoActual = vanoObj;
+      document.getElementById("modal-vano-title").innerText = `Vano ${vanoObj.vano} • Tramo ${vanoObj.tramo}`;
+      document.getElementById("modal-estado").classList.remove("hidden");
+    }
+
+    function cerrarModal() {
+      document.getElementById("modal-estado").classList.add("hidden");
+    }
+
+    async function guardarEstado(nuevoEstado) {
+      cerrarModal();
+
+      const vano = estadoApp.vanoActual;
+      vano.estado = nuevoEstado;
+
+      renderVanos(); // Actualización optimista en UI
+
+      try {
+        const resp = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            zona: estadoApp.zona,
+            tramo: estadoApp.tramoSeleccionado.tramo,
+            vano: vano.vano,
+            nuevoEstado: nuevoEstado
+          })
+        });
+
+        const res = await resp.json();
+        if (res.success) {
+          if (res.fechaCertificado) vano.fechaCertificado = res.fechaCertificado;
+          actualizarProgresoTramo();
+          renderVanos();
+        }
+      } catch (e) {
+        alert("Error al sincronizar con Google Sheets.");
+      }
+    }
+
+    function filtrarVanos(tipo) {
+      estadoApp.filtroActual = tipo;
+      renderVanos();
+    }
+
+    function cargarDatosActuales() {
+      if (!document.getElementById("vista-vanos").classList.contains("hidden")) {
+        cargarVanos();
+      } else {
+        cargarTramos();
+      }
+    }
+  </script>
+</body>
+</html>
