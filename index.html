@@ -72,7 +72,7 @@
         </button>
       </div>
 
-      <!-- Barra de herramientas de selección -->
+      <!-- Barra de herramientas -->
       <div class="flex items-center justify-between pt-2">
         <div class="flex space-x-1 overflow-x-auto text-xs no-scrollbar">
           <button onclick="filtrarVanos('TODOS')" class="bg-blue-600 text-white px-2.5 py-1.5 rounded-lg whitespace-nowrap">Todos</button>
@@ -91,7 +91,7 @@
 
   </main>
 
-  <!-- BARRA FLOTANTE ACCIÓN EN LOTE -->
+  <!-- BARRA FLOTANTE -->
   <div id="barra-flotante" class="fixed bottom-4 left-4 right-4 max-w-lg mx-auto bg-slate-800 border border-slate-600 text-white p-3 rounded-2xl shadow-2xl flex items-center justify-between hidden z-30">
     <div class="flex items-center space-x-2">
       <span class="w-6 h-6 rounded-full bg-blue-600 text-xs font-bold flex items-center justify-center" id="count-seleccionados">0</span>
@@ -103,7 +103,7 @@
     </button>
   </div>
 
-  <!-- Modal Selector de Estado Individual o Lote -->
+  <!-- Modal Selector de Estado -->
   <div id="modal-estado" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 shadow-2xl">
       <div class="flex justify-between items-center border-b border-slate-700 pb-3">
@@ -116,7 +116,6 @@
         </button>
       </div>
 
-      <!-- Opciones Limpias sin duplicaciones -->
       <div class="grid grid-cols-1 gap-2 text-sm font-medium">
         <button onclick="aplicarEstadoLote('Poda Preventiva Verde')" class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 flex items-center justify-between hover:bg-emerald-900/50">
           <span class="flex items-center space-x-2.5">
@@ -304,7 +303,7 @@
         const item = document.createElement("div");
         item.className = `bg-slate-800/80 border ${isChecked ? 'border-blue-500 bg-blue-950/20' : 'border-slate-700/80'} rounded-xl p-3 flex items-center justify-between cursor-pointer transition`;
         item.onclick = (e) => {
-          if (e.target.type !== 'checkbox') {
+          if (e.target.tagName !== 'INPUT') {
             toggleSeleccionVano(v.vano);
           }
         };
@@ -326,6 +325,15 @@
         `;
         contenedor.appendChild(item);
       });
+
+      // Actualizar texto del botón Marcar/Desmarcar Todos
+      const btnTxt = document.getElementById("txt-select-all");
+      if (estadoApp.seleccionados.size > 0 && estadoApp.seleccionados.size === estadoApp.vanos.length) {
+        btnTxt.innerText = "Desmarcar Todos";
+      } else {
+        btnTxt.innerText = "Marcar Todos";
+      }
+
       actualizarBarraFlotante();
       lucide.createIcons();
     }
@@ -342,10 +350,8 @@
     function toggleSeleccionarTodos() {
       if (estadoApp.seleccionados.size === estadoApp.vanos.length) {
         estadoApp.seleccionados.clear();
-        document.getElementById("txt-select-all").innerText = "Marcar Todos";
       } else {
         estadoApp.vanos.forEach(v => estadoApp.seleccionados.add(v.vano));
-        document.getElementById("txt-select-all").innerText = "Desmarcar Todos";
       }
       renderVanos();
     }
@@ -399,29 +405,31 @@
     async function actualizarTramoServidor() {
       const btn = document.getElementById("btn-actualizar-tramo");
       btn.disabled = true;
-      btn.innerText = "Guardando cambios en Google Sheets...";
+      btn.innerText = "Guardando en Google Sheets...";
 
       const vanosPayload = estadoApp.vanos.map(v => ({
-        vano: v.vano,
-        estado: v.estado
+        vano: String(v.vano),
+        estado: String(v.estado)
       }));
 
       try {
         const resp = await fetch(API_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({
             action: "actualizarTramoBatch",
             zona: estadoApp.zona,
-            tramo: estadoApp.tramoSeleccionado.tramo,
+            tramo: String(estadoApp.tramoSeleccionado.tramo),
             vanos: vanosPayload
           })
         });
 
         const res = await resp.json();
         if (res.success) {
-          alert(`¡Éxito! Se actualizaron los datos en la planilla Google Sheets.`);
+          alert(`¡Éxito! Se guardaron correctamente los datos en Google Sheets.`);
           await cargarVanos();
+        } else {
+          alert(`Error del servidor: ${res.message || 'No se pudo guardar'}`);
         }
       } catch (e) {
         alert("Error al intentar guardar en Google Sheets.");
