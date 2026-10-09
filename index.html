@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Certificación de Poda - EPEC1.0</title>
+  <title>Certificación de Poda - EPEC</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1e3a8a">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -65,10 +65,10 @@
           </div>
         </div>
 
-        <!-- BOTÓN CERTIFICAR TODO EL TRAMO -->
-        <button id="btn-certificar-todo" onclick="certificarTodoElTramo()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 transition active:scale-95">
-          <i data-lucide="check-check" class="w-5 h-5"></i>
-          <span>CERTIFICAR TODO EL TRAMO</span>
+        <!-- BOTÓN ACTUALIZAR TRAMO -->
+        <button id="btn-actualizar-tramo" onclick="actualizarTramoServidor()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition active:scale-95">
+          <i data-lucide="save" class="w-5 h-5"></i>
+          <span>ACTUALIZAR TRAMO</span>
         </button>
       </div>
 
@@ -76,6 +76,7 @@
       <div class="flex space-x-2 overflow-x-auto pb-1 text-xs no-scrollbar">
         <button onclick="filtrarVanos('TODOS')" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg whitespace-nowrap">Todos</button>
         <button onclick="filtrarVanos('PENDIENTE')" class="bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap">Pendientes</button>
+        <button onclick="filtrarVanos('RESTOS')" class="bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap">Restos de Poda</button>
         <button onclick="filtrarVanos('CERTIFICADO')" class="bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap">Certificados</button>
       </div>
 
@@ -83,6 +84,71 @@
     </section>
 
   </main>
+
+  <!-- Modal Selector de Estado Individual -->
+  <div id="modal-estado" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <div>
+          <span class="text-xs text-blue-400 font-semibold uppercase">Seleccionar Estado</span>
+          <h3 id="modal-vano-title" class="text-base font-bold text-white">Vano --</h3>
+        </div>
+        <button onclick="cerrarModal()" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 text-sm font-medium">
+        <button onclick="seleccionarEstadoLocal('Poda Preventiva Verde')" class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 flex items-center justify-between hover:bg-emerald-900/50">
+          <span class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+            <span>🟢 Poda Preventiva Verde</span>
+          </span>
+        </button>
+
+        <button onclick="seleccionarEstadoLocal('Poda Cerca Amarillo')" class="p-3 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-300 flex items-center justify-between hover:bg-amber-900/50">
+          <span class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+            <span>🟡 Poda Cerca Amarillo</span>
+          </span>
+        </button>
+
+        <button onclick="seleccionarEstadoLocal('Poda Muy Cerca Rojo')" class="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 flex items-center justify-between hover:bg-rose-900/50">
+          <span class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+            <span>🔴 Poda Muy Cerca Rojo</span>
+          </span>
+        </button>
+
+        <button onclick="seleccionarEstadoLocal('Poda en Altura')" class="p-3 rounded-xl bg-purple-950/60 border border-purple-500/50 text-purple-300 flex items-center justify-between hover:bg-purple-900/50">
+          <span class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+            <span>🟣 Poda en Altura</span>
+          </span>
+        </button>
+
+        <button onclick="seleccionarEstadoLocal('Restos de Poda')" class="p-3 rounded-xl bg-orange-950/60 border border-orange-500/50 text-orange-300 flex items-center justify-between hover:bg-orange-900/50">
+          <span class="flex items-center space-x-2">
+            <i data-lucide="trash-2" class="w-4 h-4 text-orange-400"></i>
+            <span>🧹 Restos de Poda</span>
+          </span>
+        </button>
+
+        <button onclick="seleccionarEstadoLocal('Certificado')" class="p-3 rounded-xl bg-blue-600 text-white flex items-center justify-between hover:bg-blue-500 shadow-lg font-bold">
+          <span class="flex items-center space-x-2">
+            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-300"></i>
+            <span>✅ Certificado</span>
+          </span>
+        </button>
+
+        <button onclick="seleccionarEstadoLocal('Pendiente')" class="p-3 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-between hover:bg-slate-600">
+          <span class="flex items-center space-x-2">
+            <span>⚪ Pendiente (Reiniciar)</span>
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbz0IMl0nAI7lY8rtjzImtL0_URi38BNl3EETrYz1XiPKWCrdMZiMpM_PG4kfoh53UQ4CQ/exec";
@@ -92,6 +158,7 @@
       tramoSeleccionado: null,
       tramos: [],
       vanos: [],
+      vanoActual: null,
       filtroActual: "TODOS"
     };
 
@@ -206,13 +273,15 @@
       contenedor.innerHTML = "";
 
       let lista = estadoApp.vanos;
-      if (estadoApp.filtroActual === "PENDIENTE") lista = lista.filter(v => v.estado !== "Certificado");
+      if (estadoApp.filtroActual === "PENDIENTE") lista = lista.filter(v => v.estado !== "Certificado" && v.estado !== "Restos de Poda");
+      if (estadoApp.filtroActual === "RESTOS") lista = lista.filter(v => v.estado === "Restos de Poda");
       if (estadoApp.filtroActual === "CERTIFICADO") lista = lista.filter(v => v.estado === "Certificado");
 
       lista.forEach(v => {
-        const isCert = v.estado === "Certificado";
+        const badge = getBadgeEstado(v.estado);
         const item = document.createElement("div");
-        item.className = "bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 flex items-center justify-between";
+        item.className = "bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 flex items-center justify-between cursor-pointer hover:border-slate-500 transition";
+        item.onclick = () => abrirModalEstado(v);
 
         item.innerHTML = `
           <div class="flex items-center space-x-3">
@@ -221,43 +290,83 @@
             </div>
             <div>
               <div class="text-xs font-bold text-white">Vano ${v.vano}</div>
-              <span class="text-[10px] font-semibold ${isCert ? 'text-emerald-400' : 'text-slate-400'}">${v.estado}</span>
+              <div class="mt-1">${badge}</div>
             </div>
           </div>
-          ${v.fechaCertificado ? `<span class="text-[10px] text-emerald-400 font-semibold">${v.fechaCertificado}</span>` : ''}
+          <div class="text-right flex items-center space-x-2">
+            ${v.fechaCertificado ? `<span class="text-[10px] text-emerald-400 font-semibold">${v.fechaCertificado}</span>` : ''}
+            <i data-lucide="edit-3" class="w-4 h-4 text-slate-500"></i>
+          </div>
         `;
         contenedor.appendChild(item);
       });
+      lucide.createIcons();
     }
 
-    async function certificarTodoElTramo() {
-      if (!confirm(`¿Confirmás certificar TODOS los vanos del Tramo ${estadoApp.tramoSeleccionado.tramo}?`)) return;
+    function getBadgeEstado(estado) {
+      switch (estado) {
+        case "Poda Preventiva Verde": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950 text-emerald-300">🟢 Preventiva Verde</span>`;
+        case "Poda Cerca Amarillo": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950 text-amber-300">🟡 Cerca Amarillo</span>`;
+        case "Poda Muy Cerca Rojo": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950 text-rose-300">🔴 Muy Cerca Rojo</span>`;
+        case "Poda en Altura": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-950 text-purple-300">🟣 Poda en Altura</span>`;
+        case "Restos de Poda": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-950 text-orange-300">🧹 Restos de Poda</span>`;
+        case "Certificado": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-950 text-blue-300">✅ CERTIFICADO</span>`;
+        default: return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-700 text-slate-300">⚪ Pendiente</span>`;
+      }
+    }
 
-      const btn = document.getElementById("btn-certificar-todo");
+    function abrirModalEstado(vanoObj) {
+      estadoApp.vanoActual = vanoObj;
+      document.getElementById("modal-vano-title").innerText = `Vano ${vanoObj.vano} • Tramo ${vanoObj.tramo}`;
+      document.getElementById("modal-estado").classList.remove("hidden");
+    }
+
+    function cerrarModal() {
+      document.getElementById("modal-estado").classList.add("hidden");
+    }
+
+    function seleccionarEstadoLocal(nuevoEstado) {
+      cerrarModal();
+      if (estadoApp.vanoActual) {
+        estadoApp.vanoActual.estado = nuevoEstado;
+        actualizarProgresoTramo();
+        renderVanos();
+      }
+    }
+
+    async function actualizarTramoServidor() {
+      const btn = document.getElementById("btn-actualizar-tramo");
       btn.disabled = true;
-      btn.innerText = "Certificando todo el tramo...";
+      btn.innerText = "Guardando cambios en Google Sheets...";
+
+      // Preparar payload con los vanos y sus estados locales
+      const vanosPayload = estadoApp.vanos.map(v => ({
+        vano: v.vano,
+        estado: v.estado
+      }));
 
       try {
         const resp = await fetch(API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "certificarTramoCompleto",
+            action: "actualizarTramoBatch",
             zona: estadoApp.zona,
-            tramo: estadoApp.tramoSeleccionado.tramo
+            tramo: estadoApp.tramoSeleccionado.tramo,
+            vanos: vanosPayload
           })
         });
 
         const res = await resp.json();
         if (res.success) {
-          alert(`¡Éxito! Se certificaron los ${res.vanosActualizados} vanos del tramo.`);
+          alert(`¡Tramo actualizado con éxito! Se guardaron los cambios de ${res.vanosActualizados} vanos.`);
           await cargarVanos();
         }
       } catch (e) {
-        alert("Error al intentar certificar el tramo.");
+        alert("Error al intentar guardar en Google Sheets.");
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<i data-lucide="check-check" class="w-5 h-5"></i><span>CERTIFICAR TODO EL TRAMO</span>`;
+        btn.innerHTML = `<i data-lucide="save" class="w-5 h-5"></i><span>ACTUALIZAR TRAMO</span>`;
         lucide.createIcons();
       }
     }
