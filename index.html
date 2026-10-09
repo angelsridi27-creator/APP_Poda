@@ -9,10 +9,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans pb-20">
 
   <!-- Header -->
-  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-50 flex items-center justify-between shadow-lg">
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-40 flex items-center justify-between shadow-lg">
     <div class="flex items-center space-x-3">
       <button id="btn-back" class="hidden p-2 text-slate-400 hover:text-white bg-slate-700/50 rounded-lg">
         <i data-lucide="arrow-left" class="w-5 h-5"></i>
@@ -68,16 +68,22 @@
         <!-- BOTÓN ACTUALIZAR TRAMO -->
         <button id="btn-actualizar-tramo" onclick="actualizarTramoServidor()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition active:scale-95">
           <i data-lucide="save" class="w-5 h-5"></i>
-          <span>ACTUALIZAR TRAMO</span>
+          <span>ACTUALIZAR TRAMO EN HOJA</span>
         </button>
       </div>
 
-      <!-- Filtros rápidos -->
-      <div class="flex space-x-2 overflow-x-auto pb-1 text-xs no-scrollbar">
-        <button onclick="filtrarVanos('TODOS')" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg whitespace-nowrap">Todos</button>
-        <button onclick="filtrarVanos('PENDIENTE')" class="bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap">Pendientes</button>
-        <button onclick="filtrarVanos('RESTOS')" class="bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap">Restos de Poda</button>
-        <button onclick="filtrarVanos('CERTIFICADO')" class="bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap">Certificados</button>
+      <!-- Barra de herramientas de selección -->
+      <div class="flex items-center justify-between pt-2">
+        <div class="flex space-x-1 overflow-x-auto text-xs no-scrollbar">
+          <button onclick="filtrarVanos('TODOS')" class="bg-blue-600 text-white px-2.5 py-1.5 rounded-lg whitespace-nowrap">Todos</button>
+          <button onclick="filtrarVanos('PENDIENTE')" class="bg-slate-800 text-slate-300 px-2.5 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap">Pendientes</button>
+          <button onclick="filtrarVanos('RESTOS')" class="bg-slate-800 text-slate-300 px-2.5 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap">Restos</button>
+          <button onclick="filtrarVanos('CERTIFICADO')" class="bg-slate-800 text-slate-300 px-2.5 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap">Certificados</button>
+        </div>
+
+        <button onclick="toggleSeleccionarTodos()" class="text-xs font-semibold text-blue-400 hover:text-blue-300 whitespace-nowrap ml-2">
+          <span id="txt-select-all">Marcar Todos</span>
+        </button>
       </div>
 
       <div id="lista-vanos" class="space-y-2"></div>
@@ -85,65 +91,79 @@
 
   </main>
 
-  <!-- Modal Selector de Estado Individual -->
+  <!-- BARRA FLOTANTE ACCIÓN EN LOTE -->
+  <div id="barra-flotante" class="fixed bottom-4 left-4 right-4 max-w-lg mx-auto bg-slate-800 border border-slate-600 text-white p-3 rounded-2xl shadow-2xl flex items-center justify-between hidden z-30">
+    <div class="flex items-center space-x-2">
+      <span class="w-6 h-6 rounded-full bg-blue-600 text-xs font-bold flex items-center justify-center" id="count-seleccionados">0</span>
+      <span class="text-xs font-semibold">Vanos marcados</span>
+    </div>
+    <button onclick="abrirModalEstado()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center space-x-1.5 shadow-md">
+      <i data-lucide="edit-2" class="w-4 h-4"></i>
+      <span>Cambiar Estado</span>
+    </button>
+  </div>
+
+  <!-- Modal Selector de Estado Individual o Lote -->
   <div id="modal-estado" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 shadow-2xl">
       <div class="flex justify-between items-center border-b border-slate-700 pb-3">
         <div>
-          <span class="text-xs text-blue-400 font-semibold uppercase">Seleccionar Estado</span>
-          <h3 id="modal-vano-title" class="text-base font-bold text-white">Vano --</h3>
+          <span class="text-xs text-blue-400 font-semibold uppercase">Seleccionar Nuevo Estado</span>
+          <h3 id="modal-vano-title" class="text-base font-bold text-white">Vanos Seleccionados</h3>
         </div>
         <button onclick="cerrarModal()" class="text-slate-400 hover:text-white p-1">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
+      <!-- Opciones Limpias sin duplicaciones -->
       <div class="grid grid-cols-1 gap-2 text-sm font-medium">
-        <button onclick="seleccionarEstadoLocal('Poda Preventiva Verde')" class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 flex items-center justify-between hover:bg-emerald-900/50">
-          <span class="flex items-center space-x-2">
+        <button onclick="aplicarEstadoLote('Poda Preventiva Verde')" class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 flex items-center justify-between hover:bg-emerald-900/50">
+          <span class="flex items-center space-x-2.5">
             <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
-            <span>🟢 Poda Preventiva Verde</span>
+            <span>Poda Preventiva</span>
           </span>
         </button>
 
-        <button onclick="seleccionarEstadoLocal('Poda Cerca Amarillo')" class="p-3 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-300 flex items-center justify-between hover:bg-amber-900/50">
-          <span class="flex items-center space-x-2">
+        <button onclick="aplicarEstadoLote('Poda Cerca Amarillo')" class="p-3 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-300 flex items-center justify-between hover:bg-amber-900/50">
+          <span class="flex items-center space-x-2.5">
             <span class="w-3 h-3 rounded-full bg-amber-500"></span>
-            <span>🟡 Poda Cerca Amarillo</span>
+            <span>Poda Cerca</span>
           </span>
         </button>
 
-        <button onclick="seleccionarEstadoLocal('Poda Muy Cerca Rojo')" class="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 flex items-center justify-between hover:bg-rose-900/50">
-          <span class="flex items-center space-x-2">
+        <button onclick="aplicarEstadoLote('Poda Muy Cerca Rojo')" class="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 flex items-center justify-between hover:bg-rose-900/50">
+          <span class="flex items-center space-x-2.5">
             <span class="w-3 h-3 rounded-full bg-rose-500"></span>
-            <span>🔴 Poda Muy Cerca Rojo</span>
+            <span>Poda Muy Cerca</span>
           </span>
         </button>
 
-        <button onclick="seleccionarEstadoLocal('Poda en Altura')" class="p-3 rounded-xl bg-purple-950/60 border border-purple-500/50 text-purple-300 flex items-center justify-between hover:bg-purple-900/50">
-          <span class="flex items-center space-x-2">
+        <button onclick="aplicarEstadoLote('Poda en Altura')" class="p-3 rounded-xl bg-purple-950/60 border border-purple-500/50 text-purple-300 flex items-center justify-between hover:bg-purple-900/50">
+          <span class="flex items-center space-x-2.5">
             <span class="w-3 h-3 rounded-full bg-purple-500"></span>
-            <span>🟣 Poda en Altura</span>
+            <span>Poda en Altura</span>
           </span>
         </button>
 
-        <button onclick="seleccionarEstadoLocal('Restos de Poda')" class="p-3 rounded-xl bg-orange-950/60 border border-orange-500/50 text-orange-300 flex items-center justify-between hover:bg-orange-900/50">
-          <span class="flex items-center space-x-2">
+        <button onclick="aplicarEstadoLote('Restos de Poda')" class="p-3 rounded-xl bg-orange-950/60 border border-orange-500/50 text-orange-300 flex items-center justify-between hover:bg-orange-900/50">
+          <span class="flex items-center space-x-2.5">
             <i data-lucide="trash-2" class="w-4 h-4 text-orange-400"></i>
-            <span>🧹 Restos de Poda</span>
+            <span>Restos de Poda</span>
           </span>
         </button>
 
-        <button onclick="seleccionarEstadoLocal('Certificado')" class="p-3 rounded-xl bg-blue-600 text-white flex items-center justify-between hover:bg-blue-500 shadow-lg font-bold">
-          <span class="flex items-center space-x-2">
+        <button onclick="aplicarEstadoLote('Certificado')" class="p-3 rounded-xl bg-blue-600 text-white flex items-center justify-between hover:bg-blue-500 shadow-lg font-bold">
+          <span class="flex items-center space-x-2.5">
             <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-300"></i>
-            <span>✅ Certificado</span>
+            <span>Certificado</span>
           </span>
         </button>
 
-        <button onclick="seleccionarEstadoLocal('Pendiente')" class="p-3 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-between hover:bg-slate-600">
-          <span class="flex items-center space-x-2">
-            <span>⚪ Pendiente (Reiniciar)</span>
+        <button onclick="aplicarEstadoLote('Pendiente')" class="p-3 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-between hover:bg-slate-600">
+          <span class="flex items-center space-x-2.5">
+            <span class="w-3 h-3 rounded-full bg-slate-400"></span>
+            <span>Pendiente (Reiniciar)</span>
           </span>
         </button>
       </div>
@@ -158,7 +178,7 @@
       tramoSeleccionado: null,
       tramos: [],
       vanos: [],
-      vanoActual: null,
+      seleccionados: new Set(),
       filtroActual: "TODOS"
     };
 
@@ -224,6 +244,7 @@
 
     async function abrirTramo(tramoObj) {
       estadoApp.tramoSeleccionado = tramoObj;
+      estadoApp.seleccionados.clear();
       document.getElementById("vista-tramos").classList.add("hidden");
       document.getElementById("vista-vanos").classList.remove("hidden");
       document.getElementById("btn-back").classList.remove("hidden");
@@ -278,46 +299,82 @@
       if (estadoApp.filtroActual === "CERTIFICADO") lista = lista.filter(v => v.estado === "Certificado");
 
       lista.forEach(v => {
+        const isChecked = estadoApp.seleccionados.has(v.vano);
         const badge = getBadgeEstado(v.estado);
         const item = document.createElement("div");
-        item.className = "bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 flex items-center justify-between cursor-pointer hover:border-slate-500 transition";
-        item.onclick = () => abrirModalEstado(v);
+        item.className = `bg-slate-800/80 border ${isChecked ? 'border-blue-500 bg-blue-950/20' : 'border-slate-700/80'} rounded-xl p-3 flex items-center justify-between cursor-pointer transition`;
+        item.onclick = (e) => {
+          if (e.target.type !== 'checkbox') {
+            toggleSeleccionVano(v.vano);
+          }
+        };
 
         item.innerHTML = `
           <div class="flex items-center space-x-3">
+            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleSeleccionVano('${v.vano}')" class="w-4 h-4 accent-blue-600 rounded cursor-pointer">
             <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center font-bold text-xs text-white">
               ${v.vano}
             </div>
             <div>
               <div class="text-xs font-bold text-white">Vano ${v.vano}</div>
-              <div class="mt-1">${badge}</div>
+              <div class="mt-0.5">${badge}</div>
             </div>
           </div>
-          <div class="text-right flex items-center space-x-2">
-            ${v.fechaCertificado ? `<span class="text-[10px] text-emerald-400 font-semibold">${v.fechaCertificado}</span>` : ''}
-            <i data-lucide="edit-3" class="w-4 h-4 text-slate-500"></i>
+          <div class="text-right">
+            ${v.fechaCertificado ? `<span class="text-[10px] text-emerald-400 font-semibold block">${v.fechaCertificado}</span>` : ''}
           </div>
         `;
         contenedor.appendChild(item);
       });
+      actualizarBarraFlotante();
       lucide.createIcons();
+    }
+
+    function toggleSeleccionVano(vano) {
+      if (estadoApp.seleccionados.has(vano)) {
+        estadoApp.seleccionados.delete(vano);
+      } else {
+        estadoApp.seleccionados.add(vano);
+      }
+      renderVanos();
+    }
+
+    function toggleSeleccionarTodos() {
+      if (estadoApp.seleccionados.size === estadoApp.vanos.length) {
+        estadoApp.seleccionados.clear();
+        document.getElementById("txt-select-all").innerText = "Marcar Todos";
+      } else {
+        estadoApp.vanos.forEach(v => estadoApp.seleccionados.add(v.vano));
+        document.getElementById("txt-select-all").innerText = "Desmarcar Todos";
+      }
+      renderVanos();
+    }
+
+    function actualizarBarraFlotante() {
+      const cant = estadoApp.seleccionados.size;
+      const barra = document.getElementById("barra-flotante");
+      if (cant > 0) {
+        document.getElementById("count-seleccionados").innerText = cant;
+        barra.classList.remove("hidden");
+      } else {
+        barra.classList.add("hidden");
+      }
     }
 
     function getBadgeEstado(estado) {
       switch (estado) {
-        case "Poda Preventiva Verde": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950 text-emerald-300">🟢 Preventiva Verde</span>`;
-        case "Poda Cerca Amarillo": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950 text-amber-300">🟡 Cerca Amarillo</span>`;
-        case "Poda Muy Cerca Rojo": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950 text-rose-300">🔴 Muy Cerca Rojo</span>`;
-        case "Poda en Altura": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-950 text-purple-300">🟣 Poda en Altura</span>`;
+        case "Poda Preventiva Verde": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950 text-emerald-300">🟢 Preventiva</span>`;
+        case "Poda Cerca Amarillo": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950 text-amber-300">🟡 Cerca</span>`;
+        case "Poda Muy Cerca Rojo": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950 text-rose-300">🔴 Muy Cerca</span>`;
+        case "Poda en Altura": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-950 text-purple-300">🟣 En Altura</span>`;
         case "Restos de Poda": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-950 text-orange-300">🧹 Restos de Poda</span>`;
-        case "Certificado": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-950 text-blue-300">✅ CERTIFICADO</span>`;
+        case "Certificado": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-950 text-blue-300">✅ Certificado</span>`;
         default: return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-700 text-slate-300">⚪ Pendiente</span>`;
       }
     }
 
-    function abrirModalEstado(vanoObj) {
-      estadoApp.vanoActual = vanoObj;
-      document.getElementById("modal-vano-title").innerText = `Vano ${vanoObj.vano} • Tramo ${vanoObj.tramo}`;
+    function abrirModalEstado() {
+      document.getElementById("modal-vano-title").innerText = `${estadoApp.seleccionados.size} Vanos Marcados`;
       document.getElementById("modal-estado").classList.remove("hidden");
     }
 
@@ -325,13 +382,18 @@
       document.getElementById("modal-estado").classList.add("hidden");
     }
 
-    function seleccionarEstadoLocal(nuevoEstado) {
+    function aplicarEstadoLote(nuevoEstado) {
       cerrarModal();
-      if (estadoApp.vanoActual) {
-        estadoApp.vanoActual.estado = nuevoEstado;
-        actualizarProgresoTramo();
-        renderVanos();
-      }
+
+      estadoApp.vanos.forEach(v => {
+        if (estadoApp.seleccionados.has(v.vano)) {
+          v.estado = nuevoEstado;
+        }
+      });
+
+      estadoApp.seleccionados.clear();
+      actualizarProgresoTramo();
+      renderVanos();
     }
 
     async function actualizarTramoServidor() {
@@ -339,7 +401,6 @@
       btn.disabled = true;
       btn.innerText = "Guardando cambios en Google Sheets...";
 
-      // Preparar payload con los vanos y sus estados locales
       const vanosPayload = estadoApp.vanos.map(v => ({
         vano: v.vano,
         estado: v.estado
@@ -359,14 +420,14 @@
 
         const res = await resp.json();
         if (res.success) {
-          alert(`¡Tramo actualizado con éxito! Se guardaron los cambios de ${res.vanosActualizados} vanos.`);
+          alert(`¡Éxito! Se actualizaron los datos en la planilla Google Sheets.`);
           await cargarVanos();
         }
       } catch (e) {
         alert("Error al intentar guardar en Google Sheets.");
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<i data-lucide="save" class="w-5 h-5"></i><span>ACTUALIZAR TRAMO</span>`;
+        btn.innerHTML = `<i data-lucide="save" class="w-5 h-5"></i><span>ACTUALIZAR TRAMO EN HOJA</span>`;
         lucide.createIcons();
       }
     }
