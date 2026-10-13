@@ -117,21 +117,22 @@
       </div>
 
       <div class="grid grid-cols-1 gap-2 text-sm font-medium">
-        <button onclick="aplicarEstadoLote('Poda Preventiva Verde')" class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 flex items-center justify-between hover:bg-emerald-900/50">
+        <!-- Estados limpios sin sufijos de color -->
+        <button onclick="aplicarEstadoLote('Poda Preventiva')" class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 flex items-center justify-between hover:bg-emerald-900/50">
           <span class="flex items-center space-x-2.5">
             <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
             <span>Poda Preventiva</span>
           </span>
         </button>
 
-        <button onclick="aplicarEstadoLote('Poda Cerca Amarillo')" class="p-3 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-300 flex items-center justify-between hover:bg-amber-900/50">
+        <button onclick="aplicarEstadoLote('Poda Cerca')" class="p-3 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-300 flex items-center justify-between hover:bg-amber-900/50">
           <span class="flex items-center space-x-2.5">
             <span class="w-3 h-3 rounded-full bg-amber-500"></span>
             <span>Poda Cerca</span>
           </span>
         </button>
 
-        <button onclick="aplicarEstadoLote('Poda Muy Cerca Rojo')" class="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 flex items-center justify-between hover:bg-rose-900/50">
+        <button onclick="aplicarEstadoLote('Poda Muy Cerca')" class="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 flex items-center justify-between hover:bg-rose-900/50">
           <span class="flex items-center space-x-2.5">
             <span class="w-3 h-3 rounded-full bg-rose-500"></span>
             <span>Poda Muy Cerca</span>
@@ -159,10 +160,11 @@
           </span>
         </button>
 
-        <button onclick="aplicarEstadoLote('Pendiente')" class="p-3 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-between hover:bg-slate-600">
+        <!-- Nueva categoría Pendiente Certificacion -->
+        <button onclick="aplicarEstadoLote('Pendiente Certificacion')" class="p-3 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-between hover:bg-slate-600">
           <span class="flex items-center space-x-2.5">
             <span class="w-3 h-3 rounded-full bg-slate-400"></span>
-            <span>Pendiente (Reiniciar)</span>
+            <span>Pendiente Certificacion (Reiniciar)</span>
           </span>
         </button>
       </div>
@@ -326,7 +328,6 @@
         contenedor.appendChild(item);
       });
 
-      // Actualizar texto del botón Marcar/Desmarcar Todos
       const btnTxt = document.getElementById("txt-select-all");
       if (estadoApp.seleccionados.size > 0 && estadoApp.seleccionados.size === estadoApp.vanos.length) {
         btnTxt.innerText = "Desmarcar Todos";
@@ -369,13 +370,13 @@
 
     function getBadgeEstado(estado) {
       switch (estado) {
-        case "Poda Preventiva Verde": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950 text-emerald-300">🟢 Preventiva</span>`;
-        case "Poda Cerca Amarillo": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950 text-amber-300">🟡 Cerca</span>`;
-        case "Poda Muy Cerca Rojo": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950 text-rose-300">🔴 Muy Cerca</span>`;
+        case "Poda Preventiva": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950 text-emerald-300">🟢 Preventiva</span>`;
+        case "Poda Cerca": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950 text-amber-300">🟡 Cerca</span>`;
+        case "Poda Muy Cerca": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950 text-rose-300">🔴 Muy Cerca</span>`;
         case "Poda en Altura": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-950 text-purple-300">🟣 En Altura</span>`;
         case "Restos de Poda": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-950 text-orange-300">🧹 Restos de Poda</span>`;
         case "Certificado": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-950 text-blue-300">✅ Certificado</span>`;
-        default: return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-700 text-slate-300">⚪ Pendiente</span>`;
+        default: return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-700 text-slate-300">⚪ Pendiente Certificacion</span>`;
       }
     }
 
