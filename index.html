@@ -35,7 +35,7 @@
       <div>
         <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Zona Seleccionada</label>
         <select id="select-zona" onchange="cargarTramos()" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl p-3 text-sm outline-none">
-          <option value="NORTE CBA CIUDAD">NORTE CBA CIUDAD</option>
+          <!-- Las zonas se cargarán dinámicamente -->
         </select>
       </div>
 
@@ -117,7 +117,6 @@
       </div>
 
       <div class="grid grid-cols-1 gap-2 text-sm font-medium">
-        <!-- Estados limpios sin sufijos de color -->
         <button onclick="aplicarEstadoLote('Poda Preventiva')" class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 flex items-center justify-between hover:bg-emerald-900/50">
           <span class="flex items-center space-x-2.5">
             <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
@@ -160,7 +159,6 @@
           </span>
         </button>
 
-        <!-- Nueva categoría Pendiente Certificacion -->
         <button onclick="aplicarEstadoLote('Pendiente Certificacion')" class="p-3 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-between hover:bg-slate-600">
           <span class="flex items-center space-x-2.5">
             <span class="w-3 h-3 rounded-full bg-slate-400"></span>
@@ -175,7 +173,7 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbz0IMl0nAI7lY8rtjzImtL0_URi38BNl3EETrYz1XiPKWCrdMZiMpM_PG4kfoh53UQ4CQ/exec";
 
     let estadoApp = {
-      zona: "NORTE CBA CIUDAD",
+      zona: "",
       tramoSeleccionado: null,
       tramos: [],
       vanos: [],
@@ -183,14 +181,42 @@
       filtroActual: "TODOS"
     };
 
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", async () => {
       lucide.createIcons();
-      cargarTramos();
+      await cargarZonas();
       document.getElementById("btn-back").addEventListener("click", volverATramos);
     });
 
+    // Carga automática y dinámica de zonas desde el servidor
+    async function cargarZonas() {
+      const selectZona = document.getElementById("select-zona");
+      selectZona.innerHTML = `<option value="">Cargando zonas...</option>`;
+
+      try {
+        const resp = await fetch(`${API_URL}?action=getZonas`);
+        const data = await resp.json();
+
+        if (data.success && data.zonas && data.zonas.length > 0) {
+          selectZona.innerHTML = "";
+          data.zonas.forEach((zona, index) => {
+            const opt = document.createElement("option");
+            opt.value = zona;
+            opt.innerText = zona;
+            selectZona.appendChild(opt);
+          });
+          estadoApp.zona = data.zonas[0];
+          cargarTramos();
+        } else {
+          selectZona.innerHTML = `<option value="">No se encontraron zonas</option>`;
+        }
+      } catch (e) {
+        selectZona.innerHTML = `<option value="">Error al cargar zonas</option>`;
+      }
+    }
+
     async function cargarTramos() {
       const zona = document.getElementById("select-zona").value;
+      if (!zona) return;
       estadoApp.zona = zona;
       const contenedor = document.getElementById("lista-tramos");
       contenedor.innerHTML = `<div class="p-8 text-center text-slate-500 text-sm">Cargando tramos...</div>`;
