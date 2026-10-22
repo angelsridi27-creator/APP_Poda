@@ -18,8 +18,8 @@
         <i data-lucide="arrow-left" class="w-5 h-5"></i>
       </button>
       <div>
-        <h1 class="text-base font-bold text-white leading-tight">Certificación de Poda 2.5</h1>
-        <p id="sub-header" class="text-xs text-slate-400">EPEC - Precarga Offline Total</p>
+        <h1 class="text-base font-bold text-white leading-tight">Certificación de Poda 2.6</h1>
+        <p id="sub-header" class="text-xs text-slate-400">EPEC - Descarga Selectiva Offline</p>
       </div>
     </div>
     <div class="flex items-center space-x-2">
@@ -33,16 +33,41 @@
   <!-- Contenido -->
   <main class="flex-1 p-4 max-w-lg mx-auto w-full space-y-4">
 
-    <!-- BOTÓN DE DESCARGA / PRECARGA MASIVA OFFLINE -->
-    <div class="bg-gradient-to-r from-blue-900/60 to-slate-800 border border-blue-500/40 rounded-2xl p-4 shadow-md flex items-center justify-between">
-      <div>
-        <h3 class="text-xs font-bold text-blue-300 uppercase">Modo Sin Conexión</h3>
-        <p id="info-sincro" class="text-[11px] text-slate-400">Descargá todo para usar en campo</p>
+    <!-- PANEL DE DESCARGA SELECTIVA OFFLINE -->
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-md space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2 text-blue-400 font-bold text-xs uppercase">
+          <i data-lucide="download-cloud" class="w-4 h-4"></i>
+          <span>Gestor de Descarga Offline</span>
+        </div>
+        <button onclick="togglePanelDescarga()" class="text-xs font-semibold text-slate-400 hover:text-white underline">
+          <span id="txt-toggle-panel">Elegir Tramos</span>
+        </button>
       </div>
-      <button onclick="precargarTodoOffline()" id="btn-precargar" class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs py-2.5 px-3.5 rounded-xl shadow flex items-center space-x-1.5 transition active:scale-95 whitespace-nowrap">
-        <i data-lucide="download-cloud" class="w-4 h-4"></i>
-        <span>Descargar Todo</span>
-      </button>
+
+      <div id="panel-descarga-selectiva" class="hidden space-y-3 pt-2 border-t border-slate-700 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Zona a gestionar:</label>
+          <select id="select-zona-descarga" onchange="cargarTramosParaDescarga()" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-2.5 outline-none">
+            <!-- Zonas -->
+          </select>
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-slate-400 font-semibold">Seleccionar Tramos a Guardar:</span>
+            <button onclick="marcarTodosDescarga(true)" class="text-blue-400 hover:underline">Marcar Todos</button>
+          </div>
+          <div id="lista-tramos-descarga" class="max-h-48 overflow-y-auto space-y-1.5 bg-slate-900/60 p-2 rounded-xl border border-slate-700">
+            <p class="text-slate-500 italic p-2">Selecciona una zona...</p>
+          </div>
+        </div>
+
+        <button onclick="descargarTramosSeleccionados()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-xl shadow transition active:scale-95 flex items-center justify-center space-x-1.5">
+          <i data-lucide="check-circle" class="w-4 h-4"></i>
+          <span>Descargar Tramos Seleccionados</span>
+        </button>
+      </div>
     </div>
 
     <!-- VISTA 1: SELECCIÓN DE TRAMO -->
@@ -226,8 +251,8 @@
     function registrarServiceWorker() {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js')
-          .then(reg => console.log('Service Worker registrado con éxito'))
-          .catch(err => console.log('Error al registrar Service Worker', err));
+          .then(reg => console.log('Service Worker registrado'))
+          .catch(err => console.log('Error SW', err));
       }
     }
 
@@ -240,75 +265,117 @@
       }
     }
 
-    // NUEVA FUNCIÓN: Descarga y precarga masiva de TODO el contenido para uso offline
-    async function precargarTodoOffline() {
-      if (!navigator.onLine) {
-        alert("Estás sin conexión a internet. Conéctate para descargar la información completa.");
-        return;
-      }
-
-      const btn = document.getElementById("btn-precargar");
-      const infoSincro = document.getElementById("info-sincro");
-      btn.disabled = true;
-      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Descargando...</span>`;
-      lucide.createIcons();
-
-      try {
-        // 1. Descargar Zonas
-        const respZonas = await fetch(`${API_URL}?action=getZonas`);
-        const dataZonas = await respZonas.json();
-
-        if (!dataZonas.success || !dataZonas.zonas) throw new Error("No se pudieron descargar las zonas.");
-
-        const zonas = dataZonas.zonas;
-        localStorage.setItem("cache_zonas", JSON.stringify(zonas));
-
-        let totalTramosDescargados = 0;
-
-        // 2. Por cada zona, descargar sus tramos, vanos y accesos asociados
-        for (let zona of zonas) {
-          infoSincro.innerText = `Descargando zona: ${zona}...`;
-          const respTramos = await fetch(`${API_URL}?action=getTramos&zona=${encodeURIComponent(zona)}`);
-          const dataTramos = await respTramos.json();
-
-          if (dataTramos.success && dataTramos.tramos) {
-            const tramos = dataTramos.tramos;
-            localStorage.setItem(`cache_tramos_${zona}`, JSON.stringify(tramos));
-
-            for (let tramoObj of tramos) {
-              totalTramosDescargados++;
-              // Descargar vanos del tramo
-              const respVanos = await fetch(`${API_URL}?action=getVanos&zona=${encodeURIComponent(zona)}&tramo=${tramoObj.tramo}`);
-              const dataVanos = await respVanos.json();
-              if (dataVanos.success) {
-                localStorage.setItem(`cache_vanos_${zona}_${tramoObj.tramo}`, JSON.stringify(dataVanos.vanos));
-              }
-
-              // Descargar accesos y OT de la línea
-              const respAcc = await fetch(`${API_URL}?action=getAccesos&linea=${encodeURIComponent(tramoObj.linea)}`);
-              const dataAcc = await respAcc.json();
-              if (dataAcc.success) {
-                localStorage.setItem(`cache_accesos_${tramoObj.linea}`, JSON.stringify(dataAcc));
-              }
-            }
-          }
-        }
-
-        infoSincro.innerText = `¡Sincronizado! (${totalTramosDescargados} tramos listos)`;
-        alert(`¡Precarga offline completada con éxito!\nSe descargaron todas las zonas, tramos, vanos y accesos para usar sin conexión.`);
-        cargarZonas();
-      } catch (e) {
-        console.error(e);
-        alert("Ocurrió un error durante la descarga masiva. Verifica tu conexión.");
-        infoSincro.innerText = "Error en la descarga";
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = `<i data-lucide="download-cloud" class="w-4 h-4"></i><span>Descargar Todo</span>`;
-        lucide.createIcons();
+    function togglePanelDescarga() {
+      const panel = document.getElementById("panel-descarga-selectiva");
+      const txt = document.getElementById("txt-toggle-panel");
+      panel.classList.toggle("hidden");
+      if (!panel.classList.contains("hidden")) {
+        txt.innerText = "Ocultar Gestor";
+        poblarZonasDescarga();
+      } else {
+        txt.innerText = "Elegir Tramos";
       }
     }
 
-    // Carga de Zonas con soporte offline (localStorage)
+    function poblarZonasDescarga() {
+      const selectDescarga = document.getElementById("select-zona-descarga");
+      const selectPrincipal = document.getElementById("select-zona");
+      selectDescarga.innerHTML = selectPrincipal.innerHTML;
+      if (selectPrincipal.value) {
+        selectDescarga.value = selectPrincipal.value;
+      }
+      cargarTramosParaDescarga();
+    }
+
+    async function cargarTramosParaDescarga() {
+      const zona = document.getElementById("select-zona-descarga").value;
+      const contenedor = document.getElementById("lista-tramos-descarga");
+      if (!zona) return;
+
+      contenedor.innerHTML = `<p class="text-slate-400 italic p-2">Cargando tramos de ${zona}...</p>`;
+
+      try {
+        const resp = await fetch(`${API_URL}?action=getTramos&zona=${encodeURIComponent(zona)}`);
+        const data = await resp.json();
+
+        if (data.success && data.tramos) {
+          let html = "";
+          data.tramos.forEach(t => {
+            html += `
+              <label class="flex items-center space-x-2 p-1.5 hover:bg-slate-800 rounded cursor-pointer">
+                <input type="checkbox" value="${t.tramo}" data-linea="${t.linea}" class="chk-tramo-descarga w-4 h-4 accent-blue-600 rounded">
+                <span class="text-white font-medium">Tramo ${t.tramo}: <span class="text-slate-400">${t.linea}</span></span>
+              </label>
+            `;
+          });
+          contenedor.innerHTML = html;
+        } else {
+          contenedor.innerHTML = `<p class="text-rose-400 p-2">No se encontraron tramos.</p>`;
+        }
+      } catch (e) {
+        contenedor.innerHTML = `<p class="text-rose-400 p-2">Error al conectar con el servidor.</p>`;
+      }
+    }
+
+    function marcarTodosDescarga(marcar) {
+      const checkboxes = document.querySelectorAll(".chk-tramo-descarga");
+      checkboxes.forEach(chk => chk.checked = marcar);
+    }
+
+    // Descarga selectiva elegida por el usuario
+    async function descargarTramosSeleccionados() {
+      if (!navigator.onLine) {
+        alert("Estás sin conexión a internet.");
+        return;
+      }
+
+      const zona = document.getElementById("select-zona-descarga").value;
+      const checkboxes = document.querySelectorAll(".chk-tramo-descarga:checked");
+
+      if (checkboxes.length === 0) {
+        alert("Por favor, selecciona al menos un tramo para descargar.");
+        return;
+      }
+
+      alert(`Iniciando descarga de ${checkboxes.length} tramo(s) seleccionado(s)...`);
+
+      try {
+        // Asegurar que la zona y sus tramos generales estén guardados
+        const respTramos = await fetch(`${API_URL}?action=getTramos&zona=${encodeURIComponent(zona)}`);
+        const dataTramos = await respTramos.json();
+        if (dataTramos.success) {
+          localStorage.setItem(`cache_tramos_${zona}`, JSON.stringify(dataTramos.tramos));
+        }
+
+        for (let chk of checkboxes) {
+          const tramoVal = chk.value;
+          const lineaNombre = chk.getAttribute("data-linea");
+
+          // Descargar vanos del tramo
+          const respVanos = await fetch(`${API_URL}?action=getVanos&zona=${encodeURIComponent(zona)}&tramo=${tramoVal}`);
+          const dataVanos = await respVanos.json();
+          if (dataVanos.success) {
+            localStorage.setItem(`cache_vanos_${zona}_${tramoVal}`, JSON.stringify(dataVanos.vanos));
+          }
+
+          // Descargar accesos y OT de la línea
+          const respAcc = await fetch(`${API_URL}?action=getAccesos&linea=${encodeURIComponent(lineaNombre)}`);
+          const dataAcc = await respAcc.json();
+          if (dataAcc.success) {
+            localStorage.setItem(`cache_accesos_${lineaNombre}`, JSON.stringify(dataAcc));
+          }
+        }
+
+        alert("¡Tramos seleccionados descargados y listos para usar sin conexión!");
+        togglePanelDescarga();
+        cargarTramos();
+      } catch (e) {
+        console.error(e);
+        alert("Error durante la descarga de los tramos.");
+      }
+    }
+
+    // Carga de Zonas
     async function cargarZonas() {
       const selectZona = document.getElementById("select-zona");
       selectZona.innerHTML = `<option value="">Cargando zonas...</option>`;
@@ -333,7 +400,6 @@
       if (cache) {
         const zonas = JSON.parse(cache);
         poblarSelectZonas(zonas);
-        document.getElementById("info-sincro").innerText = "Modo Sin Conexión (Caché activa)";
       } else {
         document.getElementById("select-zona").innerHTML = `<option value="">Sin conexión y sin datos precargados</option>`;
       }
@@ -352,7 +418,7 @@
       cargarTramos();
     }
 
-    // Carga de Tramos con soporte offline
+    // Carga de Tramos
     async function cargarTramos() {
       const zona = document.getElementById("select-zona").value;
       if (!zona) return;
@@ -382,7 +448,7 @@
         document.getElementById("count-tramos").innerText = tramos.length;
         renderTramos(tramos);
       } else {
-        document.getElementById("lista-tramos").innerHTML = `<div class="p-4 bg-amber-950/50 text-amber-200 rounded-xl text-center text-xs">Sin conexión y sin caché para esta zona. Usa "Descargar Todo" con señal.</div>`;
+        document.getElementById("lista-tramos").innerHTML = `<div class="p-4 bg-amber-950/50 text-amber-200 rounded-xl text-center text-xs">Sin conexión y sin caché para esta zona. Usa "Elegir Tramos" con señal para descargarlos.</div>`;
       }
     }
 
@@ -561,7 +627,7 @@
         actualizarProgresoTramo();
         renderVanos();
       } else {
-        document.getElementById("lista-vanos").innerHTML = `<div class="p-4 bg-rose-950/50 text-rose-200 rounded-xl text-center text-xs">Sin conexión y sin datos en caché para este tramo. Usa "Descargar Todo" con señal.</div>`;
+        document.getElementById("lista-vanos").innerHTML = `<div class="p-4 bg-rose-950/50 text-rose-200 rounded-xl text-center text-xs">Sin conexión y sin datos en caché para este tramo. Usa "Elegir Tramos" con señal para descargarlo.</div>`;
       }
     }
 
@@ -717,7 +783,7 @@
           alert(`Error del servidor: ${res.message || 'No se pudo guardar'}`);
         }
       } catch (e) {
-        alert("Sin conexión. Los cambios se guardaron localmente, pero recuerda sincronizar cuando tengas señal.");
+        alert("Sin conexión. Los cambios se guardaron localmente, sincroniza cuando tengas señal.");
       } finally {
         btn.disabled = false;
         btn.innerHTML = `<i data-lucide="save" class="w-5 h-5"></i><span>ACTUALIZAR TRAMO EN HOJA</span>`;
