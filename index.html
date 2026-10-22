@@ -18,20 +18,32 @@
         <i data-lucide="arrow-left" class="w-5 h-5"></i>
       </button>
       <div>
-        <h1 class="text-base font-bold text-white leading-tight">Certificación de Poda 2.4</h1>
-        <p id="sub-header" class="text-xs text-slate-400">EPEC - Cuadrillas Privadas (Modo Offline)</p>
+        <h1 class="text-base font-bold text-white leading-tight">Certificación de Poda 2.5</h1>
+        <p id="sub-header" class="text-xs text-slate-400">EPEC - Precarga Offline Total</p>
       </div>
     </div>
     <div class="flex items-center space-x-2">
       <span id="offline-badge" class="hidden px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-600/50">OFFLINE</span>
-      <button onclick="cargarDatosActuales()" class="p-2 text-slate-400 hover:text-white">
+      <button onclick="cargarDatosActuales()" class="p-2 text-slate-400 hover:text-white" title="Recargar datos">
         <i data-lucide="refresh-cw" class="w-4 h-4"></i>
       </button>
     </div>
   </header>
 
   <!-- Contenido -->
-  <main class="flex-1 p-4 max-w-lg mx-auto w-full">
+  <main class="flex-1 p-4 max-w-lg mx-auto w-full space-y-4">
+
+    <!-- BOTÓN DE DESCARGA / PRECARGA MASIVA OFFLINE -->
+    <div class="bg-gradient-to-r from-blue-900/60 to-slate-800 border border-blue-500/40 rounded-2xl p-4 shadow-md flex items-center justify-between">
+      <div>
+        <h3 class="text-xs font-bold text-blue-300 uppercase">Modo Sin Conexión</h3>
+        <p id="info-sincro" class="text-[11px] text-slate-400">Descargá todo para usar en campo</p>
+      </div>
+      <button onclick="precargarTodoOffline()" id="btn-precargar" class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs py-2.5 px-3.5 rounded-xl shadow flex items-center space-x-1.5 transition active:scale-95 whitespace-nowrap">
+        <i data-lucide="download-cloud" class="w-4 h-4"></i>
+        <span>Descargar Todo</span>
+      </button>
+    </div>
 
     <!-- VISTA 1: SELECCIÓN DE TRAMO -->
     <section id="vista-tramos" class="space-y-4">
@@ -228,6 +240,74 @@
       }
     }
 
+    // NUEVA FUNCIÓN: Descarga y precarga masiva de TODO el contenido para uso offline
+    async function precargarTodoOffline() {
+      if (!navigator.onLine) {
+        alert("Estás sin conexión a internet. Conéctate para descargar la información completa.");
+        return;
+      }
+
+      const btn = document.getElementById("btn-precargar");
+      const infoSincro = document.getElementById("info-sincro");
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Descargando...</span>`;
+      lucide.createIcons();
+
+      try {
+        // 1. Descargar Zonas
+        const respZonas = await fetch(`${API_URL}?action=getZonas`);
+        const dataZonas = await respZonas.json();
+
+        if (!dataZonas.success || !dataZonas.zonas) throw new Error("No se pudieron descargar las zonas.");
+
+        const zonas = dataZonas.zonas;
+        localStorage.setItem("cache_zonas", JSON.stringify(zonas));
+
+        let totalTramosDescargados = 0;
+
+        // 2. Por cada zona, descargar sus tramos, vanos y accesos asociados
+        for (let zona of zonas) {
+          infoSincro.innerText = `Descargando zona: ${zona}...`;
+          const respTramos = await fetch(`${API_URL}?action=getTramos&zona=${encodeURIComponent(zona)}`);
+          const dataTramos = await respTramos.json();
+
+          if (dataTramos.success && dataTramos.tramos) {
+            const tramos = dataTramos.tramos;
+            localStorage.setItem(`cache_tramos_${zona}`, JSON.stringify(tramos));
+
+            for (let tramoObj of tramos) {
+              totalTramosDescargados++;
+              // Descargar vanos del tramo
+              const respVanos = await fetch(`${API_URL}?action=getVanos&zona=${encodeURIComponent(zona)}&tramo=${tramoObj.tramo}`);
+              const dataVanos = await respVanos.json();
+              if (dataVanos.success) {
+                localStorage.setItem(`cache_vanos_${zona}_${tramoObj.tramo}`, JSON.stringify(dataVanos.vanos));
+              }
+
+              // Descargar accesos y OT de la línea
+              const respAcc = await fetch(`${API_URL}?action=getAccesos&linea=${encodeURIComponent(tramoObj.linea)}`);
+              const dataAcc = await respAcc.json();
+              if (dataAcc.success) {
+                localStorage.setItem(`cache_accesos_${tramoObj.linea}`, JSON.stringify(dataAcc));
+              }
+            }
+          }
+        }
+
+        infoSincro.innerText = `¡Sincronizado! (${totalTramosDescargados} tramos listos)`;
+        alert(`¡Precarga offline completada con éxito!\nSe descargaron todas las zonas, tramos, vanos y accesos para usar sin conexión.`);
+        cargarZonas();
+      } catch (e) {
+        console.error(e);
+        alert("Ocurrió un error durante la descarga masiva. Verifica tu conexión.");
+        infoSincro.innerText = "Error en la descarga";
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="download-cloud" class="w-4 h-4"></i><span>Descargar Todo</span>`;
+        lucide.createIcons();
+      }
+    }
+
     // Carga de Zonas con soporte offline (localStorage)
     async function cargarZonas() {
       const selectZona = document.getElementById("select-zona");
@@ -253,8 +333,9 @@
       if (cache) {
         const zonas = JSON.parse(cache);
         poblarSelectZonas(zonas);
+        document.getElementById("info-sincro").innerText = "Modo Sin Conexión (Caché activa)";
       } else {
-        document.getElementById("select-zona").innerHTML = `<option value="">Sin conexión y sin caché local</option>`;
+        document.getElementById("select-zona").innerHTML = `<option value="">Sin conexión y sin datos precargados</option>`;
       }
     }
 
@@ -301,7 +382,7 @@
         document.getElementById("count-tramos").innerText = tramos.length;
         renderTramos(tramos);
       } else {
-        document.getElementById("lista-tramos").innerHTML = `<div class="p-4 bg-amber-950/50 text-amber-200 rounded-xl text-center text-xs">Sin conexión. No hay datos en caché para esta zona.</div>`;
+        document.getElementById("lista-tramos").innerHTML = `<div class="p-4 bg-amber-950/50 text-amber-200 rounded-xl text-center text-xs">Sin conexión y sin caché para esta zona. Usa "Descargar Todo" con señal.</div>`;
       }
     }
 
@@ -347,7 +428,7 @@
       document.getElementById("vista-vanos").classList.remove("hidden");
       document.getElementById("btn-back").classList.remove("hidden");
 
-      document.getElementById("tramo-linea-tag", "").innerText = `TRAMO ${tramoObj.tramo}`;
+      document.getElementById("tramo-linea-tag").innerText = `TRAMO ${tramoObj.tramo}`;
       document.getElementById("tramo-titulo").innerText = tramoObj.linea;
 
       await cargarVanos();
@@ -394,7 +475,7 @@
         const data = JSON.parse(cache);
         renderAccesosYOT(data);
       } else {
-        document.getElementById("lista-accesos-contenido").innerHTML = `<p class="text-amber-400 text-xs italic">Sin conexión y sin datos de accesos en caché para esta línea.</p>`;
+        document.getElementById("lista-accesos-contenido").innerHTML = `<p class="text-amber-400 text-xs italic">Sin conexión y sin datos de accesos guardados para esta línea.</p>`;
       }
     }
 
@@ -480,7 +561,7 @@
         actualizarProgresoTramo();
         renderVanos();
       } else {
-        document.getElementById("lista-vanos").innerHTML = `<div class="p-4 bg-rose-950/50 text-rose-200 rounded-xl text-center text-xs">Sin conexión. No hay datos de vanos en caché para este tramo.</div>`;
+        document.getElementById("lista-vanos").innerHTML = `<div class="p-4 bg-rose-950/50 text-rose-200 rounded-xl text-center text-xs">Sin conexión y sin datos en caché para este tramo. Usa "Descargar Todo" con señal.</div>`;
       }
     }
 
@@ -636,7 +717,7 @@
           alert(`Error del servidor: ${res.message || 'No se pudo guardar'}`);
         }
       } catch (e) {
-        alert("Sin conexión a internet. No se pudo sincronizar con la hoja de Google Sheets en este momento.");
+        alert("Sin conexión. Los cambios se guardaron localmente, pero recuerda sincronizar cuando tengas señal.");
       } finally {
         btn.disabled = false;
         btn.innerHTML = `<i data-lucide="save" class="w-5 h-5"></i><span>ACTUALIZAR TRAMO EN HOJA</span>`;
