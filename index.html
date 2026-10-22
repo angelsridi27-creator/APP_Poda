@@ -18,8 +18,8 @@
         <i data-lucide="arrow-left" class="w-5 h-5"></i>
       </button>
       <div>
-        <h1 class="text-base font-bold text-white leading-tight">Certificación de Poda 2.7</h1>
-        <p id="sub-header" class="text-xs text-slate-400">EPEC - Descarga Ultrarrápida en Paralelo</p>
+        <h1 class="text-base font-bold text-white leading-tight">Certificación de Poda 2.8</h1>
+        <p id="sub-header" class="text-xs text-slate-400">EPEC - Descarga Selectiva Ultra-Rápida</p>
       </div>
     </div>
     <div class="flex items-center space-x-2">
@@ -56,16 +56,19 @@
         <div>
           <div class="flex justify-between items-center mb-1">
             <span class="text-slate-400 font-semibold">Seleccionar Tramos a Guardar:</span>
-            <button onclick="marcarTodosDescarga(true)" class="text-blue-400 hover:underline">Marcar Todos</button>
+            <div class="space-x-2">
+              <button onclick="marcarTodosDescarga(true)" class="text-blue-400 hover:underline">Marcar Todos</button>
+              <button onclick="marcarTodosDescarga(false)" class="text-slate-400 hover:underline">Desmarcar</button>
+            </div>
           </div>
           <div id="lista-tramos-descarga" class="max-h-48 overflow-y-auto space-y-1.5 bg-slate-900/60 p-2 rounded-xl border border-slate-700">
             <p class="text-slate-500 italic p-2">Selecciona una zona...</p>
           </div>
         </div>
 
-        <button onclick="descargarTramosSeleccionadosOptimizado()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-xl shadow transition active:scale-95 flex items-center justify-center space-x-1.5">
+        <button id="btn-descargar-fast" onclick="descargarTramosSeleccionadosInstantaneo()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-xl shadow transition active:scale-95 flex items-center justify-center space-x-1.5">
           <i data-lucide="zap" class="w-4 h-4 text-amber-300"></i>
-          <span>Descargar Rápido en Paralelo</span>
+          <span>Descargar Tramos Seleccionados (Instantáneo)</span>
         </button>
       </div>
     </div>
@@ -322,8 +325,8 @@
       checkboxes.forEach(chk => chk.checked = marcar);
     }
 
-    // DESCARGA ULTRARRÁPIDA EN PARALELO (Promise.all)
-    async function descargarTramosSeleccionadosOptimizado() {
+    // DESCARGA INSTANTÁNEA EN 1 SOLA CONSULTA POR ZONA
+    async function descargarTramosSeleccionadosInstantaneo() {
       if (!navigator.onLine) {
         alert("Estás sin conexión a internet.");
         return;
@@ -337,47 +340,56 @@
         return;
       }
 
-      alert(`Descargando ${checkboxes.length} tramo(s) en paralelo de forma ultrarrápida...`);
+      const btn = document.getElementById("btn-descargar-fast");
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Descargando zona...</span>`;
+      lucide.createIcons();
 
       try {
-        // Descargar estructura de tramos de la zona primero
-        const respTramos = await fetch(`${API_URL}?action=getTramos&zona=${encodeURIComponent(zona)}`);
-        const dataTramos = await respTramos.json();
-        if (dataTramos.success) {
-          localStorage.setItem(`cache_tramos_${zona}`, JSON.stringify(dataTramos.tramos));
-        }
+        // 1. Una sola petición para obtener la zona completa con todos sus vanos agrupados
+        const resp = await fetch(`${API_URL}?action=getZonaCompleta&zona=${encodeURIComponent(zona)}`);
+        const data = await resp.json();
 
-        // Crear un array de promesas para disparar TODAS las peticiones de vanos y accesos simultáneamente
-        const promesasDescarga = Array.from(checkboxes).map(async (chk) => {
+        if (!data.success) throw new Error("No se pudo obtener la información de la zona.");
+
+        // Guardar la estructura general de tramos para esta zona
+        localStorage.setItem(`cache_tramos_${zona}`, JSON.stringify(data.tramos));
+
+        // 2. Guardar en memoria local ÚNICAMENTE los vanos y accesos de los tramos que el usuario seleccionó
+        let descargasCompletadas = 0;
+        
+        for (let chk of checkboxes) {
           const tramoVal = chk.value;
           const lineaNombre = chk.getAttribute("data-linea");
 
-          // Disparar en paralelo vanos y accesos para este tramo/línea
-          const [respVanos, respAcc] = await Promise.all([
-            fetch(`${API_URL}?action=getVanos&zona=${encodeURIComponent(zona)}&tramo=${tramoVal}`),
-            fetch(`${API_URL}?action=getAccesos&linea=${encodeURIComponent(lineaNombre)}`)
-          ]);
-
-          const dataVanos = await respVanos.json();
-          if (dataVanos.success) {
-            localStorage.setItem(`cache_vanos_${zona}_${tramoVal}`, JSON.stringify(dataVanos.vanos));
+          // Guardar vanos localmente
+          if (data.vanosPorTramo && data.vanosPorTramo[tramoVal]) {
+            localStorage.setItem(`cache_vanos_${zona}_${tramoVal}`, JSON.stringify(data.vanosPorTramo[tramoVal]));
+            descargasCompletadas++;
           }
 
-          const dataAcc = await respAcc.json();
-          if (dataAcc.success) {
-            localStorage.setItem(`cache_accesos_${lineaNombre}`, JSON.stringify(dataAcc));
+          // Descargar datos de Accesos y Link OT para las líneas marcadas
+          try {
+            const respAcc = await fetch(`${API_URL}?action=getAccesos&linea=${encodeURIComponent(lineaNombre)}`);
+            const dataAcc = await respAcc.json();
+            if (dataAcc.success) {
+              localStorage.setItem(`cache_accesos_${lineaNombre}`, JSON.stringify(dataAcc));
+            }
+          } catch (errAcc) {
+            console.log("No se pudo descargar accesos de: " + lineaNombre);
           }
-        });
+        }
 
-        // Esperar a que absolutamente todas las descargas paralelas terminen juntas
-        await Promise.all(promesasDescarga);
-
-        alert("¡Descarga ultrarrápida completada con éxito!");
+        alert(`¡Éxito! Se descargaron y guardaron ${descargasCompletadas} tramos localmente.`);
         togglePanelDescarga();
         cargarTramos();
       } catch (e) {
         console.error(e);
-        alert("Ocurrió un error durante la descarga masiva paralela.");
+        alert("Ocurrió un error al descargar la zona.");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="zap" class="w-4 h-4 text-amber-300"></i><span>Descargar Tramos Seleccionados (Instantáneo)</span>`;
+        lucide.createIcons();
       }
     }
 
