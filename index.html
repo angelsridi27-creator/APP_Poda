@@ -18,8 +18,8 @@
         <i data-lucide="arrow-left" class="w-5 h-5"></i>
       </button>
       <div>
-        <h1 class="text-base font-bold text-white leading-tight">Certificación de Poda 2.6</h1>
-        <p id="sub-header" class="text-xs text-slate-400">EPEC - Descarga Selectiva Offline</p>
+        <h1 class="text-base font-bold text-white leading-tight">Certificación de Poda 2.7</h1>
+        <p id="sub-header" class="text-xs text-slate-400">EPEC - Descarga Ultrarrápida en Paralelo</p>
       </div>
     </div>
     <div class="flex items-center space-x-2">
@@ -63,9 +63,9 @@
           </div>
         </div>
 
-        <button onclick="descargarTramosSeleccionados()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-xl shadow transition active:scale-95 flex items-center justify-center space-x-1.5">
-          <i data-lucide="check-circle" class="w-4 h-4"></i>
-          <span>Descargar Tramos Seleccionados</span>
+        <button onclick="descargarTramosSeleccionadosOptimizado()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-xl shadow transition active:scale-95 flex items-center justify-center space-x-1.5">
+          <i data-lucide="zap" class="w-4 h-4 text-amber-300"></i>
+          <span>Descargar Rápido en Paralelo</span>
         </button>
       </div>
     </div>
@@ -322,8 +322,8 @@
       checkboxes.forEach(chk => chk.checked = marcar);
     }
 
-    // Descarga selectiva elegida por el usuario
-    async function descargarTramosSeleccionados() {
+    // DESCARGA ULTRARRÁPIDA EN PARALELO (Promise.all)
+    async function descargarTramosSeleccionadosOptimizado() {
       if (!navigator.onLine) {
         alert("Estás sin conexión a internet.");
         return;
@@ -337,41 +337,47 @@
         return;
       }
 
-      alert(`Iniciando descarga de ${checkboxes.length} tramo(s) seleccionado(s)...`);
+      alert(`Descargando ${checkboxes.length} tramo(s) en paralelo de forma ultrarrápida...`);
 
       try {
-        // Asegurar que la zona y sus tramos generales estén guardados
+        // Descargar estructura de tramos de la zona primero
         const respTramos = await fetch(`${API_URL}?action=getTramos&zona=${encodeURIComponent(zona)}`);
         const dataTramos = await respTramos.json();
         if (dataTramos.success) {
           localStorage.setItem(`cache_tramos_${zona}`, JSON.stringify(dataTramos.tramos));
         }
 
-        for (let chk of checkboxes) {
+        // Crear un array de promesas para disparar TODAS las peticiones de vanos y accesos simultáneamente
+        const promesasDescarga = Array.from(checkboxes).map(async (chk) => {
           const tramoVal = chk.value;
           const lineaNombre = chk.getAttribute("data-linea");
 
-          // Descargar vanos del tramo
-          const respVanos = await fetch(`${API_URL}?action=getVanos&zona=${encodeURIComponent(zona)}&tramo=${tramoVal}`);
+          // Disparar en paralelo vanos y accesos para este tramo/línea
+          const [respVanos, respAcc] = await Promise.all([
+            fetch(`${API_URL}?action=getVanos&zona=${encodeURIComponent(zona)}&tramo=${tramoVal}`),
+            fetch(`${API_URL}?action=getAccesos&linea=${encodeURIComponent(lineaNombre)}`)
+          ]);
+
           const dataVanos = await respVanos.json();
           if (dataVanos.success) {
             localStorage.setItem(`cache_vanos_${zona}_${tramoVal}`, JSON.stringify(dataVanos.vanos));
           }
 
-          // Descargar accesos y OT de la línea
-          const respAcc = await fetch(`${API_URL}?action=getAccesos&linea=${encodeURIComponent(lineaNombre)}`);
           const dataAcc = await respAcc.json();
           if (dataAcc.success) {
             localStorage.setItem(`cache_accesos_${lineaNombre}`, JSON.stringify(dataAcc));
           }
-        }
+        });
 
-        alert("¡Tramos seleccionados descargados y listos para usar sin conexión!");
+        // Esperar a que absolutamente todas las descargas paralelas terminen juntas
+        await Promise.all(promesasDescarga);
+
+        alert("¡Descarga ultrarrápida completada con éxito!");
         togglePanelDescarga();
         cargarTramos();
       } catch (e) {
         console.error(e);
-        alert("Error durante la descarga de los tramos.");
+        alert("Ocurrió un error durante la descarga masiva paralela.");
       }
     }
 
