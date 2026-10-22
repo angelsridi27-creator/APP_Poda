@@ -18,13 +18,16 @@
         <i data-lucide="arrow-left" class="w-5 h-5"></i>
       </button>
       <div>
-        <h1 class="text-base font-bold text-white leading-tight">Certificación de Poda 2.3</h1>
-        <p id="sub-header" class="text-xs text-slate-400">EPEC - Cuadrillas Privadas</p>
+        <h1 class="text-base font-bold text-white leading-tight">Certificación de Poda 2.4</h1>
+        <p id="sub-header" class="text-xs text-slate-400">EPEC - Cuadrillas Privadas (Modo Offline)</p>
       </div>
     </div>
-    <button onclick="cargarDatosActuales()" class="p-2 text-slate-400 hover:text-white">
-      <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-    </button>
+    <div class="flex items-center space-x-2">
+      <span id="offline-badge" class="hidden px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-600/50">OFFLINE</span>
+      <button onclick="cargarDatosActuales()" class="p-2 text-slate-400 hover:text-white">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+      </button>
+    </div>
   </header>
 
   <!-- Contenido -->
@@ -199,10 +202,33 @@
 
     document.addEventListener("DOMContentLoaded", async () => {
       lucide.createIcons();
+      registrarServiceWorker();
+      verificarConexion();
+      window.addEventListener('online', verificarConexion);
+      window.addEventListener('offline', verificarConexion);
+
       await cargarZonas();
       document.getElementById("btn-back").addEventListener("click", volverATramos);
     });
 
+    function registrarServiceWorker() {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('Service Worker registrado con éxito'))
+          .catch(err => console.log('Error al registrar Service Worker', err));
+      }
+    }
+
+    function verificarConexion() {
+      const badge = document.getElementById("offline-badge");
+      if (!navigator.onLine) {
+        badge.classList.remove("hidden");
+      } else {
+        badge.classList.add("hidden");
+      }
+    }
+
+    // Carga de Zonas con soporte offline (localStorage)
     async function cargarZonas() {
       const selectZona = document.getElementById("select-zona");
       selectZona.innerHTML = `<option value="">Cargando zonas...</option>`;
@@ -212,23 +238,40 @@
         const data = await resp.json();
 
         if (data.success && data.zonas && data.zonas.length > 0) {
-          selectZona.innerHTML = "";
-          data.zonas.forEach((zona) => {
-            const opt = document.createElement("option");
-            opt.value = zona;
-            opt.innerText = zona;
-            selectZona.appendChild(opt);
-          });
-          estadoApp.zona = data.zonas[0];
-          cargarTramos();
+          localStorage.setItem("cache_zonas", JSON.stringify(data.zonas));
+          poblarSelectZonas(data.zonas);
         } else {
-          selectZona.innerHTML = `<option value="">No se encontraron zonas</option>`;
+          cargarZonasOffline();
         }
       } catch (e) {
-        selectZona.innerHTML = `<option value="">Error al cargar zonas</option>`;
+        cargarZonasOffline();
       }
     }
 
+    function cargarZonasOffline() {
+      const cache = localStorage.getItem("cache_zonas");
+      if (cache) {
+        const zonas = JSON.parse(cache);
+        poblarSelectZonas(zonas);
+      } else {
+        document.getElementById("select-zona").innerHTML = `<option value="">Sin conexión y sin caché local</option>`;
+      }
+    }
+
+    function poblarSelectZonas(zonas) {
+      const selectZona = document.getElementById("select-zona");
+      selectZona.innerHTML = "";
+      zonas.forEach(zona => {
+        const opt = document.createElement("option");
+        opt.value = zona;
+        opt.innerText = zona;
+        selectZona.appendChild(opt);
+      });
+      estadoApp.zona = zonas[0];
+      cargarTramos();
+    }
+
+    // Carga de Tramos con soporte offline
     async function cargarTramos() {
       const zona = document.getElementById("select-zona").value;
       if (!zona) return;
@@ -241,18 +284,31 @@
         const data = await resp.json();
 
         if (data.success) {
-          estadoApp.tramos = data.tramos;
-          document.getElementById("count-tramos").innerText = data.tramos.length;
+          localStorage.setItem(`cache_tramos_${zona}`, JSON.stringify(data.tramos));
           renderTramos(data.tramos);
+        } else {
+          cargarTramosOffline(zona);
         }
       } catch (e) {
-        contenedor.innerHTML = `<div class="p-4 bg-rose-950/50 border border-rose-500 text-rose-200 rounded-xl text-center text-xs">Error de conexión.</div>`;
+        cargarTramosOffline(zona);
+      }
+    }
+
+    function cargarTramosOffline(zona) {
+      const cache = localStorage.getItem(`cache_tramos_${zona}`);
+      if (cache) {
+        const tramos = JSON.parse(cache);
+        document.getElementById("count-tramos").innerText = tramos.length;
+        renderTramos(tramos);
+      } else {
+        document.getElementById("lista-tramos").innerHTML = `<div class="p-4 bg-amber-950/50 text-amber-200 rounded-xl text-center text-xs">Sin conexión. No hay datos en caché para esta zona.</div>`;
       }
     }
 
     function renderTramos(tramos) {
       const contenedor = document.getElementById("lista-tramos");
       contenedor.innerHTML = "";
+      document.getElementById("count-tramos").innerText = tramos.length;
 
       tramos.forEach(t => {
         const pct = Math.round((t.certificados / t.totalVanos) * 100) || 0;
@@ -291,7 +347,7 @@
       document.getElementById("vista-vanos").classList.remove("hidden");
       document.getElementById("btn-back").classList.remove("hidden");
 
-      document.getElementById("tramo-linea-tag").innerText = `TRAMO ${tramoObj.tramo}`;
+      document.getElementById("tramo-linea-tag", "").innerText = `TRAMO ${tramoObj.tramo}`;
       document.getElementById("tramo-titulo").innerText = tramoObj.linea;
 
       await cargarVanos();
@@ -312,6 +368,7 @@
       icono.classList.toggle("rotate-180");
     }
 
+    // Carga de Accesos y OT con soporte offline
     async function cargarAccesosLinea(lineaNombre) {
       const contenedorAccesos = document.getElementById("lista-accesos-contenido");
       contenedorAccesos.innerHTML = `<p class="text-slate-500 italic">Buscando datos de accesos y OT...</p>`;
@@ -321,78 +378,109 @@
         const data = await resp.json();
 
         if (data.success) {
-          let html = "";
-
-          // Botón Orden de Trabajo (OT)
-          if (data.linkOT) {
-            html += `
-              <div class="bg-blue-950/60 border border-blue-500/50 rounded-xl p-3 flex items-center justify-between mb-3 shadow">
-                <div class="flex items-center space-x-2 text-blue-300 font-bold">
-                  <i data-lucide="file-text" class="w-4 h-4"></i>
-                  <span>Orden de Trabajo (OT)</span>
-                </div>
-                <a href="${data.linkOT}" target="_blank" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1">
-                  <span>Ver PDF / OT</span>
-                  <i data-lucide="external-link" class="w-3 h-3"></i>
-                </a>
-              </div>
-            `;
-          }
-
-          if (data.accesos && data.accesos.length > 0) {
-            data.accesos.forEach((acc) => {
-              html += `
-                <div class="bg-slate-900/60 border border-slate-700/60 rounded-xl p-3 space-y-2">
-                  <div class="flex justify-between items-center text-amber-300 font-bold border-b border-slate-800 pb-1">
-                    <span>Vanos: ${acc.vanoInicio || '-'} al ${acc.vanoFin || '-'}</span>
-                    <span class="bg-amber-950 px-2 py-0.5 rounded text-[10px]">Candado N° ${acc.candado || 'S/N'}</span>
-                  </div>
-                  <div class="grid grid-cols-1 gap-1 text-slate-300">
-                    <div><strong class="text-slate-400">Campo:</strong> ${acc.campo || '-'}</div>
-                    ${acc.dueno ? `
-                      <div class="flex items-center justify-between">
-                        <span><strong class="text-slate-400">Dueño:</strong> ${acc.dueno}</span>
-                        ${acc.telDueno ? `<a href="tel:${acc.telDueno}" class="bg-emerald-950 text-emerald-300 hover:bg-emerald-900 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1"><i data-lucide="phone" class="w-3 h-3"></i><span>Llamar</span></a>` : ''}
-                      </div>` : ''}
-                    ${acc.encargado ? `
-                      <div class="flex items-center justify-between">
-                        <span><strong class="text-slate-400">Encargado:</strong> ${acc.encargado}</span>
-                        ${acc.telEncargado ? `<a href="tel:${acc.telEncargado}" class="bg-emerald-950 text-emerald-300 hover:bg-emerald-900 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1"><i data-lucide="phone" class="w-3 h-3"></i><span>Llamar</span></a>` : ''}
-                      </div>` : ''}
-                    ${acc.observaciones ? `<div class="text-[11px] text-slate-400 italic pt-1 border-t border-slate-800"><strong class="text-slate-300">Obs:</strong> ${acc.observaciones}</div>` : ''}
-                  </div>
-                </div>
-              `;
-            });
-          } else if (!data.linkOT) {
-            html += `<p class="text-slate-500 italic">No hay registros de accesos ni OT configurados para esta línea.</p>`;
-          }
-
-          contenedorAccesos.innerHTML = html;
-          lucide.createIcons();
+          localStorage.setItem(`cache_accesos_${lineaNombre}`, JSON.stringify(data));
+          renderAccesosYOT(data);
         } else {
-          contenedorAccesos.innerHTML = `<p class="text-rose-400 text-xs">Error al cargar la información.</p>`;
+          cargarAccesosOffline(lineaNombre);
         }
       } catch (e) {
-        contenedorAccesos.innerHTML = `<p class="text-rose-400 text-xs">Error de conexión al buscar accesos y OT.</p>`;
+        cargarAccesosOffline(lineaNombre);
       }
     }
 
+    function cargarAccesosOffline(lineaNombre) {
+      const cache = localStorage.getItem(`cache_accesos_${lineaNombre}`);
+      if (cache) {
+        const data = JSON.parse(cache);
+        renderAccesosYOT(data);
+      } else {
+        document.getElementById("lista-accesos-contenido").innerHTML = `<p class="text-amber-400 text-xs italic">Sin conexión y sin datos de accesos en caché para esta línea.</p>`;
+      }
+    }
+
+    function renderAccesosYOT(data) {
+      const contenedorAccesos = document.getElementById("lista-accesos-contenido");
+      let html = "";
+
+      if (data.linkOT) {
+        html += `
+          <div class="bg-blue-950/60 border border-blue-500/50 rounded-xl p-3 flex items-center justify-between mb-3 shadow">
+            <div class="flex items-center space-x-2 text-blue-300 font-bold">
+              <i data-lucide="file-text" class="w-4 h-4"></i>
+              <span>Orden de Trabajo (OT)</span>
+            </div>
+            <a href="${data.linkOT}" target="_blank" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1">
+              <span>Ver PDF / OT</span>
+              <i data-lucide="external-link" class="w-3 h-3"></i>
+            </a>
+          </div>
+        `;
+      }
+
+      if (data.accesos && data.accesos.length > 0) {
+        data.accesos.forEach((acc) => {
+          html += `
+            <div class="bg-slate-900/60 border border-slate-700/60 rounded-xl p-3 space-y-2">
+              <div class="flex justify-between items-center text-amber-300 font-bold border-b border-slate-800 pb-1">
+                <span>Vanos: ${acc.vanoInicio || '-'} al ${acc.vanoFin || '-'}</span>
+                <span class="bg-amber-950 px-2 py-0.5 rounded text-[10px]">Candado N° ${acc.candado || 'S/N'}</span>
+              </div>
+              <div class="grid grid-cols-1 gap-1 text-slate-300">
+                <div><strong class="text-slate-400">Campo:</strong> ${acc.campo || '-'}</div>
+                ${acc.dueno ? `
+                  <div class="flex items-center justify-between">
+                    <span><strong class="text-slate-400">Dueño:</strong> ${acc.dueno}</span>
+                    ${acc.telDueno ? `<a href="tel:${acc.telDueno}" class="bg-emerald-950 text-emerald-300 hover:bg-emerald-900 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1"><i data-lucide="phone" class="w-3 h-3"></i><span>Llamar</span></a>` : ''}
+                  </div>` : ''}
+                ${acc.encargado ? `
+                  <div class="flex items-center justify-between">
+                    <span><strong class="text-slate-400">Encargado:</strong> ${acc.encargado}</span>
+                    ${acc.telEncargado ? `<a href="tel:${acc.telEncargado}" class="bg-emerald-950 text-emerald-300 hover:bg-emerald-900 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1"><i data-lucide="phone" class="w-3 h-3"></i><span>Llamar</span></a>` : ''}
+                  </div>` : ''}
+                ${acc.observaciones ? `<div class="text-[11px] text-slate-400 italic pt-1 border-t border-slate-800"><strong class="text-slate-300">Obs:</strong> ${acc.observaciones}</div>` : ''}
+              </div>
+            </div>
+          `;
+        });
+      } else if (!data.linkOT) {
+        html += `<p class="text-slate-500 italic">No hay registros de accesos ni OT configurados para esta línea.</p>`;
+      }
+
+      contenedorAccesos.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    // Carga de Vanos con soporte offline
     async function cargarVanos() {
       const contenedor = document.getElementById("lista-vanos");
       contenedor.innerHTML = `<div class="p-8 text-center text-slate-500 text-sm">Cargando vanos...</div>`;
+      const cacheKey = `cache_vanos_${estadoApp.zona}_${estadoApp.tramoSeleccionado.tramo}`;
 
       try {
         const resp = await fetch(`${API_URL}?action=getVanos&zona=${encodeURIComponent(estadoApp.zona)}&tramo=${estadoApp.tramoSeleccionado.tramo}`);
         const data = await resp.json();
 
         if (data.success) {
+          localStorage.setItem(cacheKey, JSON.stringify(data.vanos));
           estadoApp.vanos = data.vanos;
           actualizarProgresoTramo();
           renderVanos();
+        } else {
+          cargarVanosOffline(cacheKey);
         }
       } catch (e) {
-        contenedor.innerHTML = `<div class="p-4 bg-rose-950/50 text-rose-200 rounded-xl text-center text-xs">Error al cargar vanos.</div>`;
+        cargarVanosOffline(cacheKey);
+      }
+    }
+
+    function cargarVanosOffline(cacheKey) {
+      const cache = localStorage.getItem(cacheKey);
+      if (cache) {
+        estadoApp.vanos = JSON.parse(cache);
+        actualizarProgresoTramo();
+        renderVanos();
+      } else {
+        document.getElementById("lista-vanos").innerHTML = `<div class="p-4 bg-rose-950/50 text-rose-200 rounded-xl text-center text-xs">Sin conexión. No hay datos de vanos en caché para este tramo.</div>`;
       }
     }
 
@@ -548,7 +636,7 @@
           alert(`Error del servidor: ${res.message || 'No se pudo guardar'}`);
         }
       } catch (e) {
-        alert("Error al intentar guardar en Google Sheets.");
+        alert("Sin conexión a internet. No se pudo sincronizar con la hoja de Google Sheets en este momento.");
       } finally {
         btn.disabled = false;
         btn.innerHTML = `<i data-lucide="save" class="w-5 h-5"></i><span>ACTUALIZAR TRAMO EN HOJA</span>`;
@@ -566,7 +654,7 @@
         cargarVanos();
         if (estadoApp.tramoSeleccionado) cargarAccesosLinea(estadoApp.tramoSeleccionado.linea);
       } else {
-        cargarTramos();
+        cargarZonas();
       }
     }
   </script>
