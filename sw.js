@@ -1,12 +1,13 @@
-const CACHE_NAME = 'poda-epec-v1';
+const CACHE_NAME = 'poda-epec-v3'; // Cambiamos versión para forzar actualización de logo
 const urlsToCache = [
   'index.html',
   'manifest.json',
+  'logo.png',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest'
 ];
 
-// Instalación del Service Worker
+// Instalación
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -16,7 +17,7 @@ self.addEventListener('install', event => {
   );
 });
 
-// Activación y limpieza de cachés antiguas
+// Activación y limpieza de caché antigua
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
@@ -31,15 +32,12 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Interceptar peticiones para funcionamiento Offline
+// Interceptar peticiones offline
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Si está en caché, lo devuelve. Si no, intenta buscarlo en la red.
-        return response || fetch(event.request).catch(() => {
-          // Si falla la red y es una página, puedes retornar un fallback si deseas
-        });
+        return response || fetch(event.request);
       })
   );
 });
