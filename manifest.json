@@ -9,24 +9,21 @@
     {
       "src": "logo.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     },
     {
       "src": "logo.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ]
 }
 ```[cite: 5]
 
-#### 2. Actualizar el Service Worker (`sw.js`)
-Actualizá la versión del caché a `poda-epec-v4` en tu archivo **`sw.js`**[cite: 6] para borrar cualquier resto viejo:
+Y en tu **Service Worker (`sw.js`)**, sube la versión a la `v5` para forzar a que limpie por completo la memoria anterior[cite: 6]:
 
 ```javascript
-const CACHE_NAME = 'poda-epec-v4';
+const CACHE_NAME = 'poda-epec-v5';
 const urlsToCache = [
   'index.html',
   'manifest.json',
@@ -56,23 +53,5 @@ self.addEventListener('fetch', event => {
 });
 ```[cite: 6]
 
-#### 3. Asegurar las etiquetas en el `<head>` del `index.html`
-Asegurate de que tu archivo **`index.html`** tenga exactamente estas líneas dentro de la sección `<head>`[cite: 4]:
-
-```html
-<link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" sizes="192x192" href="logo.png">
-<link rel="apple-touch-icon" href="logo.png">
-```[cite: 4, 5]
-
----
-
-### 🚨 El paso final obligatorio:
-Como los teléfonos guardan una miniatura interna de los accesos directos, para ver el cambio reflejado **tenés que hacer esto obligatoriamente**:
-
-1. **Borrá/Desinstalá** el acceso directo actual de la pantalla de inicio de tu celular.
-2. Si estás probando en iPhone (Safari), cerrá todas las pestañas de Safari, ve a *Ajustes > Safari > Borrar historial y datos de sitios web*.
-3. Volvé a abrir el enlace de la PWA desde el navegador del celular.
-4. Tocá en **"Agregar a la pantalla de inicio"**[cite: 4].
-
-Al actualizar la versión del Service Worker a `v4`[cite: 6] y limpiar el almacenamiento del navegador, el teléfono se verá obligado a leer el archivo `logo.png`[cite: 3, 5, 6] que está al lado de tu `index.html`[cite: 3] y mostrará tu imagen oficial de inmediato.
+### El paso final obligatorio:
+Como el teléfono se quedó atascado mostrando la letra "C", **debes desinstalar la app de la pantalla de inicio, borrar los datos de navegación del navegador móvil y volver a agregarla**. Al subir la versión a `v5`[cite: 6] con un PNG limpio y validado, el celular finalmente reemplazará la letra por tu imagen oficial.
