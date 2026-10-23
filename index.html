@@ -7,7 +7,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1e3a8a">
 
-  <!-- VINCULACIÓN DIRECTA DEL LOGO -->
+  <!-- ESTAS ETIQUETAS SON LAS QUE FALTABAN PARA FORZAR EL LOGO EN EL HTML -->
   <link rel="icon" type="image/png" sizes="192x192" href="logo.png">
   <link rel="apple-touch-icon" href="logo.png">
 
@@ -517,7 +517,7 @@
       document.getElementById("vista-vanos").classList.remove("hidden");
       document.getElementById("btn-back").classList.remove("hidden");
 
-      document.getElementById("tramo-linea-tag").innerText = `TRAMO ${tramoObj.tramo}`;
+      document.getElementById("tramo-linea-tag", `TRAMO ${tramoObj.tramo}`);
       document.getElementById("tramo-titulo").innerText = tramoObj.linea;
 
       await cargarVanos();
@@ -744,8 +744,8 @@
     function getBadgeEstado(estado) {
       switch (estado) {
         case "Poda Preventiva": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950 text-emerald-300">🟢 Preventiva</span>`;
-        case "Poda Cerca": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950 text-amber-300">🟡 Cerca</span>`;
-        case "Poda Muy Cerca": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950 text-rose-300">🔴 Muy Cerca</span>`;
+        case "Poda Requerida": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950 text-amber-300">🟡 Requerida</span>`;
+        case "Poda Crítica": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950 text-rose-300">🔴 Crítica</span>`;
         case "Poda en Altura": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-950 text-purple-300">🟣 En Altura</span>`;
         case "Restos de Poda": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-950 text-orange-300">🧹 Restos de Poda</span>`;
         case "Certificado": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-950 text-blue-300">✅ Certificado</span>`;
