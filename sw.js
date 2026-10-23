@@ -1,8 +1,9 @@
-const CACHE_NAME = 'poda-epec-v6';
+const CACHE_NAME = 'poda-epec-v7';
 const urlsToCache = [
-  'index.html',
-  'manifest.json',
-  'logo.png',
+  './',
+  './index.html',
+  './manifest.json',
+  './logo.png',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest'
 ];
