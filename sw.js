@@ -2,7 +2,7 @@ const CACHE_NAME = 'poda-epec-v3'; // Cambiamos versión para forzar actualizaci
 const urlsToCache = [
   'index.html',
   'manifest.json',
-  'logo.png',
+  'logo1.png',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest'
 ];
