@@ -169,7 +169,7 @@
 
   <!-- Modal Selector de Estado -->
   <div id="modal-estado" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-    <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 shadow-2xl">
+    <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center border-b border-slate-700 pb-3">
         <div>
           <span class="text-xs text-blue-400 font-semibold uppercase">Seleccionar Nuevo Estado</span>
@@ -180,7 +180,25 @@
         </button>
       </div>
 
-      <div class="grid grid-cols-1 gap-2 text-sm font-medium">
+      <!-- CAPTURA DE FOTO OPCIONAL -->
+      <div class="bg-slate-900/80 border border-slate-700 rounded-xl p-3 space-y-2">
+        <label class="block text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
+          <i data-lucide="camera" class="w-4 h-4 text-blue-400"></i>
+          <span>Foto de evidencia (Opcional):</span>
+        </label>
+        <div class="flex items-center space-x-2">
+          <input type="file" id="input-foto-vano" accept="image/*" capture="environment" onchange="procesarFotoSeleccionada(event)" class="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer">
+        </div>
+        <div id="preview-foto-container" class="hidden pt-2 flex items-center justify-between bg-slate-800 p-2 rounded-lg border border-slate-700">
+          <span class="text-xs text-emerald-400 font-medium flex items-center space-x-1">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Foto adjuntada correctamente</span>
+          </span>
+          <button onclick="limpiarFotoSeleccionada()" class="text-xs text-rose-400 hover:text-rose-300 underline">Quitar</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 text-sm font-medium pt-1">
         <button onclick="aplicarEstadoLote('Poda Preventiva')" class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 flex items-center justify-between hover:bg-emerald-900/50">
           <span class="flex items-center space-x-2.5">
             <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
@@ -242,7 +260,8 @@
       tramos: [],
       vanos: [],
       seleccionados: new Set(),
-      filtroActual: "TODOS"
+      filtroActual: "TODOS",
+      fotoBase64Actual: null // Almacena la foto en Base64 temporalmente
     };
 
     document.addEventListener("DOMContentLoaded", async () => {
@@ -330,7 +349,6 @@
       checkboxes.forEach(chk => chk.checked = marcar);
     }
 
-    // DESCARGA INSTANTÁNEA EN 1 SOLA CONSULTA POR ZONA
     async function descargarTramosSeleccionadosInstantaneo() {
       if (!navigator.onLine) {
         alert("Estás sin conexión a internet.");
@@ -393,7 +411,6 @@
       }
     }
 
-    // Carga de Zonas
     async function cargarZonas() {
       const selectZona = document.getElementById("select-zona");
       selectZona.innerHTML = `<option value="">Cargando zonas...</option>`;
@@ -436,7 +453,6 @@
       cargarTramos();
     }
 
-    // Carga de Tramos
     async function cargarTramos() {
       const zona = document.getElementById("select-zona").value;
       if (!zona) return;
@@ -533,7 +549,6 @@
       icono.classList.toggle("rotate-180");
     }
 
-    // Carga de Accesos y OT con soporte offline
     async function cargarAccesosLinea(lineaNombre) {
       const contenedorAccesos = document.getElementById("lista-accesos-contenido");
       contenedorAccesos.innerHTML = `<p class="text-slate-500 italic">Buscando datos de accesos y OT...</p>`;
@@ -615,7 +630,6 @@
       lucide.createIcons();
     }
 
-    // Carga de Vanos con soporte offline
     async function cargarVanos() {
       const contenedor = document.getElementById("lista-vanos");
       contenedor.innerHTML = `<div class="p-8 text-center text-slate-500 text-sm">Cargando vanos...</div>`;
@@ -670,10 +684,14 @@
       lista.forEach(v => {
         const isChecked = estadoApp.seleccionados.has(v.vano);
         const badge = getBadgeEstado(v.estado);
+        
+        // Indicador visual si el vano tiene foto asociada en SharePoint
+        const iconoFoto = v.fotoUrl ? `<a href="${v.fotoUrl}" target="_blank" onclick="event.stopPropagation()" class="text-blue-400 hover:text-blue-300 ml-1.5 inline-flex items-center" title="Ver foto en SharePoint"><i data-lucide="image" class="w-3.5 h-3.5"></i></a>` : '';
+
         const item = document.createElement("div");
         item.className = `bg-slate-800/80 border ${isChecked ? 'border-blue-500 bg-blue-950/20' : 'border-slate-700/80'} rounded-xl p-3 flex items-center justify-between cursor-pointer transition`;
         item.onclick = (e) => {
-          if (e.target.tagName !== 'INPUT') {
+          if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'A' && e.target.tagName !== 'SVG') {
             toggleSeleccionVano(v.vano);
           }
         };
@@ -685,7 +703,10 @@
               ${v.vano}
             </div>
             <div>
-              <div class="text-xs font-bold text-white">Vano ${v.vano}</div>
+              <div class="text-xs font-bold text-white flex items-center">
+                <span>Vano ${v.vano}</span>
+                ${iconoFoto}
+              </div>
               <div class="mt-0.5">${badge}</div>
             </div>
           </div>
@@ -752,11 +773,33 @@
 
     function abrirModalEstado() {
       document.getElementById("modal-vano-title").innerText = `${estadoApp.seleccionados.size} Vanos Marcados`;
+      limpiarFotoSeleccionada();
       document.getElementById("modal-estado").classList.remove("hidden");
+      lucide.createIcons();
     }
 
     function cerrarModal() {
       document.getElementById("modal-estado").classList.add("hidden");
+    }
+
+    // Funciones para manejar la captura de imagen
+    function procesarFotoSeleccionada(event) {
+      const archivo = event.target.files[0];
+      if (!archivo) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        estadoApp.fotoBase64Actual = e.target.result; // Guarda el Base64
+        document.getElementById("preview-foto-container").classList.remove("hidden");
+      };
+      reader.readAsDataURL(archivo);
+    }
+
+    function limpiarFotoSeleccionada() {
+      estadoApp.fotoBase64Actual = null;
+      const input = document.getElementById("input-foto-vano");
+      if (input) input.value = "";
+      document.getElementById("preview-foto-container").classList.add("hidden");
     }
 
     function aplicarEstadoLote(nuevoEstado) {
@@ -765,10 +808,15 @@
       estadoApp.vanos.forEach(v => {
         if (estadoApp.seleccionados.has(v.vano)) {
           v.estado = nuevoEstado;
+          // Si adjuntó foto y seleccionó un solo vano (o aplica para el lote), se asigna
+          if (estadoApp.fotoBase64Actual) {
+            v.fotoBase64 = estadoApp.fotoBase64Actual;
+          }
         }
       });
 
       estadoApp.seleccionados.clear();
+      estadoApp.fotoBase64Actual = null;
       actualizarProgresoTramo();
       renderVanos();
     }
@@ -776,11 +824,12 @@
     async function actualizarTramoServidor() {
       const btn = document.getElementById("btn-actualizar-tramo");
       btn.disabled = true;
-      btn.innerText = "Guardando en Google Sheets...";
+      btn.innerText = "Guardando y subiendo fotos...";
 
       const vanosPayload = estadoApp.vanos.map(v => ({
         vano: String(v.vano),
-        estado: String(v.estado)
+        estado: String(v.estado),
+        fotoBase64: v.fotoBase64 || null
       }));
 
       try {
@@ -797,7 +846,9 @@
 
         const res = await resp.json();
         if (res.success) {
-          alert(`¡Éxito! Se guardaron correctamente los datos en Google Sheets.`);
+          alert(`¡Éxito! Datos y fotos guardados correctamente.`);
+          // Limpiar fotos temporales del estado local
+          estadoApp.vanos.forEach(v => delete v.fotoBase64);
           await cargarVanos();
         } else {
           alert(`Error del servidor: ${res.message || 'No se pudo guardar'}`);
