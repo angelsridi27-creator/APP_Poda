@@ -7,7 +7,7 @@
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#1e3a8a">
 
-  <!-- ESTAS ETIQUETAS SON LAS QUE FALTABAN PARA FORZAR EL LOGO EN EL HTML -->
+  <!-- ETIQUETAS DE NAVEGACIÓN Y LOGO -->
   <link rel="icon" type="image/png" sizes="192x192" href="./logo.png">
   <link rel="apple-touch-icon" href="./logo.png">
 
@@ -351,29 +351,24 @@
       lucide.createIcons();
 
       try {
-        // 1. Una sola petición para obtener la zona completa con todos sus vanos agrupados
         const resp = await fetch(`${API_URL}?action=getZonaCompleta&zona=${encodeURIComponent(zona)}`);
         const data = await resp.json();
 
         if (!data.success) throw new Error("No se pudo obtener la información de la zona.");
 
-        // Guardar la estructura general de tramos para esta zona
         localStorage.setItem(`cache_tramos_${zona}`, JSON.stringify(data.tramos));
 
-        // 2. Guardar en memoria local ÚNICAMENTE los vanos y accesos de los tramos que el usuario seleccionó
         let descargasCompletadas = 0;
         
         for (let chk of checkboxes) {
           const tramoVal = chk.value;
           const lineaNombre = chk.getAttribute("data-linea");
 
-          // Guardar vanos localmente
           if (data.vanosPorTramo && data.vanosPorTramo[tramoVal]) {
             localStorage.setItem(`cache_vanos_${zona}_${tramoVal}`, JSON.stringify(data.vanosPorTramo[tramoVal]));
             descargasCompletadas++;
           }
 
-          // Descargar datos de Accesos y Link OT para las líneas marcadas
           try {
             const respAcc = await fetch(`${API_URL}?action=getAccesos&linea=${encodeURIComponent(lineaNombre)}`);
             const dataAcc = await respAcc.json();
@@ -517,7 +512,7 @@
       document.getElementById("vista-vanos").classList.remove("hidden");
       document.getElementById("btn-back").classList.remove("hidden");
 
-      document.getElementById("tramo-linea-tag", `TRAMO ${tramoObj.tramo}`);
+      document.getElementById("tramo-linea-tag").innerText = `TRAMO ${tramoObj.tramo}`;
       document.getElementById("tramo-titulo").innerText = tramoObj.linea;
 
       await cargarVanos();
@@ -744,12 +739,14 @@
     function getBadgeEstado(estado) {
       switch (estado) {
         case "Poda Preventiva": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950 text-emerald-300">🟢 Preventiva</span>`;
+        case "Poda Cerca": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950 text-amber-300">🟡 Poda Cerca</span>`;
+        case "Poda Muy Cerca": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950 text-rose-300">🔴 Poda Muy Cerca</span>`;
         case "Poda Requerida": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950 text-amber-300">🟡 Requerida</span>`;
         case "Poda Crítica": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950 text-rose-300">🔴 Crítica</span>`;
         case "Poda en Altura": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-950 text-purple-300">🟣 En Altura</span>`;
         case "Restos de Poda": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-950 text-orange-300">🧹 Restos de Poda</span>`;
         case "Certificado": return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-950 text-blue-300">✅ Certificado</span>`;
-        default: return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-700 text-slate-300">⚪ Pendiente Certificacion</span>`;
+        default: return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-700 text-slate-300">⚪ ${estado || 'Pendiente Certificacion'}</span>`;
       }
     }
 
