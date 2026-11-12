@@ -180,11 +180,11 @@
         </button>
       </div>
 
-      <!-- CAPTURA DE FOTO OPCIONAL -->
+      <!-- CAPTURA DE FOTO CON ESTAMPADO LOCAL -->
       <div class="bg-slate-900/80 border border-slate-700 rounded-xl p-3 space-y-2">
         <label class="block text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
           <i data-lucide="camera" class="w-4 h-4 text-blue-400"></i>
-          <span>Foto de evidencia (Opcional):</span>
+          <span>Foto de evidencia con Marca de Agua (Opcional):</span>
         </label>
         <div class="flex items-center space-x-2">
           <input type="file" id="input-foto-vano" accept="image/*" capture="environment" onchange="procesarFotoSeleccionada(event)" class="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer">
@@ -192,7 +192,7 @@
         <div id="preview-foto-container" class="hidden pt-2 flex items-center justify-between bg-slate-800 p-2 rounded-lg border border-slate-700">
           <span class="text-xs text-emerald-400 font-medium flex items-center space-x-1">
             <i data-lucide="check" class="w-3.5 h-3.5"></i>
-            <span>Foto adjuntada correctamente</span>
+            <span>Foto procesada con logo y GPS</span>
           </span>
           <button onclick="limpiarFotoSeleccionada()" class="text-xs text-rose-400 hover:text-rose-300 underline">Quitar</button>
         </div>
@@ -253,6 +253,7 @@
 
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbz0IMl0nAI7lY8rtjzImtL0_URi38BNl3EETrYz1XiPKWCrdMZiMpM_PG4kfoh53UQ4CQ/exec";
+    const RUTA_LOGO_EPEC = "./Epec_cba_logo.png"; // Asegurate de tener este archivo en la raíz de tu PWA
 
     let estadoApp = {
       zona: "",
@@ -261,7 +262,7 @@
       vanos: [],
       seleccionados: new Set(),
       filtroActual: "TODOS",
-      fotoBase64Actual: null // Almacena la foto en Base64 temporalmente
+      fotoBase64Actual: null // Almacena la foto procesada con marca de agua
     };
 
     document.addEventListener("DOMContentLoaded", async () => {
@@ -685,7 +686,6 @@
         const isChecked = estadoApp.seleccionados.has(v.vano);
         const badge = getBadgeEstado(v.estado);
         
-        // Indicador visual si el vano tiene foto asociada en SharePoint
         const iconoFoto = v.fotoUrl ? `<a href="${v.fotoUrl}" target="_blank" onclick="event.stopPropagation()" class="text-blue-400 hover:text-blue-300 ml-1.5 inline-flex items-center" title="Ver foto en SharePoint"><i data-lucide="image" class="w-3.5 h-3.5"></i></a>` : '';
 
         const item = document.createElement("div");
@@ -782,17 +782,150 @@
       document.getElementById("modal-estado").classList.add("hidden");
     }
 
-    // Funciones para manejar la captura de imagen
-    function procesarFotoSeleccionada(event) {
+    // ==========================================
+    // MÓDULO DE PROCESAMIENTO Y ESTAMPADO LOCAL
+    // ==========================================
+    async function procesarFotoSeleccionada(event) {
       const archivo = event.target.files[0];
       if (!archivo) return;
 
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        estadoApp.fotoBase64Actual = e.target.result; // Guarda el Base64
-        document.getElementById("preview-foto-container").classList.remove("hidden");
+      // Tomamos el primer vano seleccionado o por defecto para extraer línea y vano
+      const primerVanoNum = Array.from(estadoApp.seleccionados)[0] || "1";
+      const infoRegistro = {
+        linea: estadoApp.tramoSeleccionado ? estadoApp.tramoSeleccionado.linea : "EPEC",
+        tramo: estadoApp.tramoSeleccionado ? estadoApp.tramoSeleccionado.tramo : "1",
+        vano: primerVanoNum
       };
-      reader.readAsDataURL(archivo);
+
+      try {
+        // 1. Obtenemos coordenadas GPS del dispositivo
+        const coords = await obtenerCoordenadasGPS();
+
+        // 2. Procesamos en Canvas
+        const fotoConMarca = await estamparDatosEnCanvas(archivo, infoRegistro, coords);
+        estadoApp.fotoBase64Actual = fotoConMarca;
+        document.getElementById("preview-foto-container").classList.remove("hidden");
+      } catch (err) {
+        console.error("Error al procesar la foto:", err);
+        alert("Hubo un error al estampar la foto. Se intentará enviar sin marca.");
+        const reader = new FileReader();
+        reader.onload = (e) => { estadoApp.fotoBase64Actual = e.target.result; };
+        reader.readAsDataURL(archivo);
+        document.getElementById("preview-foto-container").classList.remove("hidden");
+      }
+    }
+
+    function estamparDatosEnCanvas(archivoImagen, infoRegistro, coords) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const img = new Image();
+          img.onload = function() {
+            const canvas = document.createElement("canvas");
+            
+            // Límite de ancho para optimizar velocidad de subida
+            const MAX_WIDTH = 1600;
+            let width = img.width;
+            let height = img.height;
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+
+            // Dibujar imagen original
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Franja inferior oscura semitransparente
+            const alturaBanner = Math.max(130, Math.round(height * 0.18));
+            ctx.fillStyle = "rgba(0, 0, 0, 0.78)";
+            ctx.fillRect(0, height - alturaBanner, width, alturaBanner);
+
+            // Cargar Logo de EPEC
+            const logoImg = new Image();
+            logoImg.crossOrigin = "anonymous";
+            logoImg.src = RUTA_LOGO_EPEC;
+
+            logoImg.onload = function() {
+              const padding = Math.round(alturaBanner * 0.15);
+              const logoH = alturaBanner - padding * 2;
+              const ratio = logoImg.width / logoImg.height;
+              const logoW = Math.round(logoH * ratio);
+
+              // Tarjeta blanca de contraste detrás del logo verde
+              ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+              ctx.beginPath();
+              ctx.roundRect(padding - 6, height - alturaBanner + padding - 6, logoW + 12, logoH + 12, 8);
+              ctx.fill();
+
+              // Dibujar logo
+              ctx.drawImage(logoImg, padding, height - alturaBanner + padding, logoW, logoH);
+
+              dibujarTextosYResolver(padding + logoW + 25, height - alturaBanner, alturaBanner, width);
+            };
+
+            logoImg.onerror = function() {
+              // Si falla la carga del logo, dibuja igual los textos
+              dibujarTextosYResolver(25, height - alturaBanner, alturaBanner, width);
+            };
+
+            function dibujarTextosYResolver(startX, bannerY, bannerH, canvasW) {
+              const fontSize = Math.max(15, Math.floor(bannerH * 0.16));
+              const lineHeight = Math.round(fontSize * 1.32);
+              const startY = bannerY + Math.round((bannerH - lineHeight * 3.3) / 2) + fontSize;
+
+              const fechaHora = new Date().toLocaleString("es-AR", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit"
+              });
+
+              ctx.fillStyle = "#FFFFFF";
+              ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+              ctx.fillText(`LÍNEA: ${infoRegistro.linea || "S/D"}`, startX, startY);
+
+              ctx.font = `600 ${Math.round(fontSize * 0.92)}px Arial, sans-serif`;
+              ctx.fillStyle = "#E0E0E0";
+              ctx.fillText(`Tramo: ${infoRegistro.tramo || "-"}  |  Vano: ${infoRegistro.vano || "-"}`, startX, startY + lineHeight);
+              ctx.fillText(`GPS: ${coords.lat}, ${coords.lon}`, startX, startY + lineHeight * 2);
+              ctx.fillText(`Fecha y Hora: ${fechaHora}`, startX, startY + lineHeight * 3);
+
+              resolve(canvas.toDataURL("image/jpeg", 0.85));
+            }
+          };
+          img.onerror = (err) => reject(err);
+          img.src = event.target.result;
+        };
+        reader.onerror = (err) => reject(err);
+        reader.readAsDataURL(archivoImagen);
+      });
+    }
+
+    function obtenerCoordenadasGPS() {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          resolve({ lat: "No disponible", lon: "" });
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            resolve({
+              lat: pos.coords.latitude.toFixed(6),
+              lon: pos.coords.longitude.toFixed(6)
+            });
+          },
+          () => {
+            resolve({ lat: "Sin señal GPS", lon: "" });
+          },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+      });
     }
 
     function limpiarFotoSeleccionada() {
@@ -808,7 +941,6 @@
       estadoApp.vanos.forEach(v => {
         if (estadoApp.seleccionados.has(v.vano)) {
           v.estado = nuevoEstado;
-          // Si adjuntó foto y seleccionó un solo vano (o aplica para el lote), se asigna
           if (estadoApp.fotoBase64Actual) {
             v.fotoBase64 = estadoApp.fotoBase64Actual;
           }
@@ -847,7 +979,6 @@
         const res = await resp.json();
         if (res.success) {
           alert(`¡Éxito! Datos y fotos guardados correctamente.`);
-          // Limpiar fotos temporales del estado local
           estadoApp.vanos.forEach(v => delete v.fotoBase64);
           await cargarVanos();
         } else {
